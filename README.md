@@ -79,7 +79,7 @@ pnpm build
 ## 문서
 
 - `docs/ARCHITECTURE.md`
-- `docs/DELIVERY-PLAN.md`
-- `docs/DEVELOPMENT-START.md`
+- `docs/PRD.md`
+- `docs/DEVELOPMENT.md`
 - `docs/decisions/002-auth-and-neon.md`
 - `docs/HANDOFF.md`

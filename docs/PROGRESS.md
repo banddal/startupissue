@@ -9,7 +9,7 @@
 | 라운드 | Round 1 — 인증 |
 | 브랜치 | `codex/round1-auth` |
 | 기준 저장소 | `https://github.com/banddal/startupissue` |
-| 로컬 작업본 | `C:\Users\HP\Desktop\coding test\startup issues\startupissue` |
+| 로컬 작업본 | `C:\Users\HP\Desktop\coding test\startup issues` |
 | 상태 | 외부 서비스 연결 전 로컬 구현 완료 |
 
 ## 확정 스택
