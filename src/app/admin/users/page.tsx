@@ -1,74 +1,54 @@
-import { redirect } from "next/navigation";
+import { asc } from "drizzle-orm";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase-server";
-import UserRow from "@/components/UserRow";
-import type { Profile } from "@/lib/types";
+
+import { StatusForm } from "@/components/status-form";
+import { requireAdmin } from "@/server/auth/guards";
+import { db } from "@/server/db";
+import { users } from "@/server/db/schema";
+
+export const dynamic = "force-dynamic";
 
 export default async function AdminUsersPage() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/");
-
-  const { data: me } = await supabase
-    .from("profiles")
-    .select("role, status")
-    .eq("id", user.id)
-    .single();
-
-  if (me?.role !== "admin" || me?.status !== "active") redirect("/today");
-
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, email, name, avatar_url, role, status, created_at")
-    .order("created_at", { ascending: false });
-
-  const list = (profiles ?? []) as Profile[];
-  const pending = list.filter((p) => p.status === "pending");
-  const others = list.filter((p) => p.status !== "pending");
+  await requireAdmin();
+  const rows = await db.select().from(users).orderBy(asc(users.createdAt));
 
   return (
-    <div className="min-h-screen">
-      <header className="bg-white border-b border-line">
-        <div className="max-w-3xl mx-auto px-5 py-4 flex items-center gap-3">
-          <h1 className="text-lg font-bold">사용자 관리</h1>
-          <span className="flex-1" />
-          <Link
-            href="/today"
-            className="text-xs text-soft border border-line rounded px-3 py-1.5 hover:bg-[#F0EFE7]"
-          >
-            오늘로
-          </Link>
-        </div>
-      </header>
+    <main className="mx-auto max-w-5xl px-6 py-10">
+      <Link className="text-sm underline" href="/today">
+        오늘로 돌아가기
+      </Link>
+      <h1 className="mt-6 text-3xl font-semibold">사용자 관리</h1>
 
-      <main className="max-w-3xl mx-auto px-5 py-6">
-        <section className="mb-8">
-          <h2 className="text-sm font-semibold mb-3">
-            승인 대기{" "}
-            <span className="font-mono text-xs text-soft">{pending.length}</span>
-          </h2>
-          {pending.length === 0 ? (
-            <p className="text-sm text-soft">대기 중인 신청이 없습니다.</p>
-          ) : (
-            <div className="grid gap-2">
-              {pending.map((p) => (
-                <UserRow key={p.id} profile={p} />
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section>
-          <h2 className="text-sm font-semibold mb-3">전체 사용자</h2>
-          <div className="grid gap-2">
-            {others.map((p) => (
-              <UserRow key={p.id} profile={p} />
+      <div className="mt-8 overflow-x-auto rounded-xl border border-neutral-200 bg-white">
+        <table className="w-full text-left text-sm">
+          <thead className="border-b border-neutral-200 bg-neutral-50">
+            <tr>
+              <th className="px-4 py-3 font-medium">사용자</th>
+              <th className="px-4 py-3 font-medium">역할</th>
+              <th className="px-4 py-3 font-medium">상태</th>
+              <th className="px-4 py-3 font-medium">변경</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((user) => (
+              <tr className="border-b border-neutral-100" key={user.id}>
+                <td className="px-4 py-3">
+                  <p className="font-medium">{user.name ?? "이름 없음"}</p>
+                  <p className="text-neutral-500">{user.email}</p>
+                </td>
+                <td className="px-4 py-3">{user.role}</td>
+                <td className="px-4 py-3">{user.status}</td>
+                <td className="px-4 py-3">
+                  <StatusForm
+                    currentStatus={user.status}
+                    userId={user.id}
+                  />
+                </td>
+              </tr>
             ))}
-          </div>
-        </section>
-      </main>
-    </div>
+          </tbody>
+        </table>
+      </div>
+    </main>
   );
 }

@@ -1,64 +1,85 @@
 # Startup Issues
 
-스타트업 관련 정보(뉴스·정부공고)를 매일 자동 수집해 카드로 쌓고, 훑어보며 중요한 것을 체크·메모하고, 관련된 카드들을 묶어 인사이트를 남기는 도구.
+스타트업 뉴스와 정부 공고를 매일 수집해 중요한 변화를 보여주고 과거 정보를 누적하는 내부 인텔리전스 아카이브.
 
-## 문서
+## 현재 범위
 
-- `docs/PROGRESS.md` — 진행 기록. 매 라운드 갱신
-- `docs/decisions/` — 결정 문서
+Round 1은 인증과 승인 기반 접근 제어만 구현한다.
 
-## 설정
+- Google OAuth
+- 신규 사용자 `pending`
+- 관리자 승인·정지
+- 승인된 사용자만 `/today` 접근
 
-### 1. 의존성
+수집 워커와 실제 카드는 Round 2부터 추가한다.
+
+## 기술
+
+- Next.js 16 App Router
+- Neon PostgreSQL
+- Drizzle ORM
+- Auth.js + Google OAuth + database session
+- Tailwind CSS 4
+- Vitest
+
+## 로컬 설정
+
+### 1. 환경변수
+
+`.env.example`을 `.env.local`로 복사하고 값을 입력한다.
+
+```text
+DATABASE_URL=
+AUTH_SECRET=
+AUTH_GOOGLE_ID=
+AUTH_GOOGLE_SECRET=
+BOOTSTRAP_ADMIN_EMAIL=
+```
+
+Auth.js secret은 안전한 무작위 문자열을 사용한다. 환경변수와 비밀값은 Git에 커밋하지 않는다.
+
+### 2. 설치와 마이그레이션
 
 ```bash
 pnpm install
+pnpm db:migrate
 ```
 
-### 2. Supabase
-
-1. [supabase.com](https://supabase.com)에서 새 프로젝트 생성
-2. SQL Editor에서 `supabase/migrations/0001_init.sql` 실행
-3. Authentication → Providers → Google 활성화
-   - Google Cloud Console에서 OAuth 클라이언트 생성
-   - 승인된 리디렉션 URI에 Supabase가 안내하는 콜백 URL 등록
-4. Project Settings → API에서 URL과 anon key 확인
-
-### 3. 환경변수
-
-`.env.example`을 복사해 `.env.local` 생성 후 값 입력.
-
-```bash
-cp .env.example .env.local
-```
-
-### 4. 실행
+### 3. 실행
 
 ```bash
 pnpm dev
 ```
 
-### 5. 첫 관리자 지정
+Google OAuth callback:
 
-Google 로그인을 한 번 한 뒤, Supabase SQL Editor에서 실행.
-
-```sql
-update profiles set role = 'admin', status = 'active'
-where email = 'your@email.com';
+```text
+http://localhost:3000/api/auth/callback/google
 ```
 
-## 구조
+### 4. 첫 관리자
 
-```
-src/app/          화면 (Next.js App Router)
-src/components/   클라이언트 컴포넌트
-src/lib/          Supabase 클라이언트, 타입
-supabase/         마이그레이션
-worker/           수집 워커 (Round 2부터)
-scripts/          CI 검사
+Google 로그인을 한 번 수행해 `pending` 사용자를 만든 다음:
+
+```bash
+pnpm exec node --env-file=.env.local scripts/bootstrap-admin.mjs
 ```
 
-## 원칙
+`BOOTSTRAP_ADMIN_EMAIL`과 일치하는 사용자 한 명만 admin·active로 변경한다.
 
-- 웹은 anon 키 + 사용자 세션만 사용한다. `service_role`은 워커 전용.
-- `pnpm check:service-role`로 위반을 검사한다.
+## 검증
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+## 문서
+
+- `docs/ARCHITECTURE.md`
+- `docs/DELIVERY-PLAN.md`
+- `docs/DEVELOPMENT-START.md`
+- `docs/decisions/002-auth-and-neon.md`
+- `docs/HANDOFF.md`

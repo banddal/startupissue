@@ -1,11 +1,10 @@
 node_modules
 .next
-out
-build
 .env
 .env.local
-.DS_Store
+.env.*.local
+!.env.example
+coverage
 *.log
-.vercel
-tsconfig.tsbuildinfo
-next-env.d.ts
+*.tsbuildinfo
+.DS_Store

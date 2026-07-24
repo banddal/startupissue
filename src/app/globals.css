@@ -1,9 +1,23 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  background: #f6f6f3;
+  color: #171717;
+}
+
+* {
+  box-sizing: border-box;
+}
 
 body {
-  background: #f7f6f1;
-  color: #22261f;
-  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  margin: 0;
+  background: #f6f6f3;
+  color: #171717;
+}
+
+button,
+select {
+  font: inherit;
 }

@@ -1,95 +1,36 @@
-import { redirect } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase-server";
-import SignOutButton from "@/components/SignOutButton";
+
+import { SignOutButton } from "@/components/auth-buttons";
+import { requireActiveUser } from "@/server/auth/guards";
+
+export const dynamic = "force-dynamic";
 
 export default async function TodayPage() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, name, email, role, status")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile || profile.status !== "active") redirect("/pending");
-
-  const { data: cards } = await supabase
-    .from("cards")
-    .select("id, title, summary, published_on, source_key, score")
-    .eq("hidden", false)
-    .order("published_on", { ascending: false })
-    .limit(30);
-
-  const today = new Date().toLocaleDateString("ko-KR", {
-    month: "long",
-    day: "numeric",
-    weekday: "short",
-  });
+  const user = await requireActiveUser();
 
   return (
-    <div className="min-h-screen">
-      <header className="bg-white border-b border-line">
-        <div className="max-w-3xl mx-auto px-5 py-4 flex items-center gap-3 flex-wrap">
-          <span className="font-mono text-[10px] tracking-[0.16em] text-soft">
-            STARTUP ISSUES
-          </span>
-          <h1 className="text-lg font-bold">오늘</h1>
-          <span className="text-xs text-soft">{today}</span>
-          <span className="flex-1" />
-          {profile.role === "admin" && (
-            <Link
-              href="/admin/users"
-              className="text-xs text-soft border border-line rounded px-3 py-1.5 hover:bg-[#F0EFE7]"
-            >
+    <main className="mx-auto max-w-5xl px-6 py-10">
+      <header className="flex items-center justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium text-neutral-500">오늘</p>
+          <h1 className="mt-1 text-3xl font-semibold">주요 업데이트</h1>
+        </div>
+        <div className="flex items-center gap-3">
+          {user.role === "admin" ? (
+            <Link className="text-sm underline" href="/admin/users">
               사용자 관리
             </Link>
-          )}
+          ) : null}
           <SignOutButton />
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto px-5 py-6">
-        {!cards || cards.length === 0 ? (
-          <div className="bg-white border border-line rounded-md p-10 text-center">
-            <p className="text-sm text-soft leading-relaxed">
-              아직 수집된 카드가 없습니다.
-              <br />
-              다음 라운드에서 뉴스와 공고 수집이 연결됩니다.
-            </p>
-          </div>
-        ) : (
-          <div className="grid gap-2">
-            {cards.map((c) => (
-              <article
-                key={c.id}
-                className="bg-white border border-line rounded-md px-4 py-3"
-              >
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="font-mono text-[10px] text-soft">
-                    {c.source_key}
-                  </span>
-                  <span className="font-mono text-[10px] text-soft">
-                    {c.published_on}
-                  </span>
-                </div>
-                <h2 className="text-[15px] font-semibold leading-snug mb-1">
-                  {c.title}
-                </h2>
-                {c.summary && (
-                  <p className="text-[13px] text-[#3c4038] leading-relaxed">
-                    {c.summary}
-                  </p>
-                )}
-              </article>
-            ))}
-          </div>
-        )}
-      </main>
-    </div>
+      <section className="mt-12 rounded-2xl border border-dashed border-neutral-300 bg-white p-10 text-center">
+        <h2 className="text-lg font-medium">아직 수집된 카드가 없습니다.</h2>
+        <p className="mt-2 text-sm text-neutral-500">
+          다음 라운드에서 첫 RSS 수집 파이프라인을 연결합니다.
+        </p>
+      </section>
+    </main>
   );
 }

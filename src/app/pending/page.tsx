@@ -1,38 +1,36 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase-server";
-import SignOutButton from "@/components/SignOutButton";
+
+import { SignOutButton } from "@/components/auth-buttons";
+import { requireUser } from "@/server/auth/guards";
+
+export const dynamic = "force-dynamic";
 
 export default async function PendingPage() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/");
+  const user = await requireUser();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("status, email")
-    .eq("id", user.id)
-    .single();
+  if (user.status === "active") {
+    redirect("/today");
+  }
 
-  if (profile?.status === "active") redirect("/today");
-
-  const rejected = profile?.status === "rejected" || profile?.status === "suspended";
+  const messages = {
+    pending: "관리자 승인 후 아카이브를 이용할 수 있습니다.",
+    rejected: "가입 요청이 승인되지 않았습니다.",
+    suspended: "현재 계정의 접근이 중지되었습니다.",
+  } as const;
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-6">
-      <div className="w-full max-w-sm text-center">
-        <h1 className="text-lg font-bold mb-3">
-          {rejected ? "접근이 허용되지 않았습니다" : "승인 대기 중입니다"}
-        </h1>
-        <p className="text-sm text-soft leading-relaxed mb-2">
-          {rejected
-            ? "관리자에게 문의해 주세요."
-            : "관리자가 승인하면 바로 이용할 수 있습니다."}
+    <main className="mx-auto flex min-h-screen max-w-xl items-center px-6">
+      <section className="w-full rounded-2xl border border-neutral-200 bg-white p-8">
+        <p className="text-sm font-medium text-neutral-500">계정 상태</p>
+        <h1 className="mt-2 text-2xl font-semibold">{user.status}</h1>
+        <p className="mt-4 text-neutral-600">
+          {messages[user.status as keyof typeof messages]}
         </p>
-        <p className="font-mono text-xs text-soft mb-8">{profile?.email}</p>
-        <SignOutButton />
-      </div>
+        <p className="mt-2 text-sm text-neutral-500">{user.email}</p>
+        <div className="mt-8">
+          <SignOutButton />
+        </div>
+      </section>
     </main>
   );
 }

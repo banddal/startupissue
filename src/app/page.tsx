@@ -1,38 +1,39 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase-server";
-import LoginButton from "@/components/LoginButton";
 
-export default async function Home() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+import { auth } from "@/auth";
+import { SignInButton } from "@/components/auth-buttons";
 
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("status")
-      .eq("id", user.id)
-      .single();
+export const dynamic = "force-dynamic";
 
-    if (profile?.status === "active") redirect("/today");
+export default async function HomePage() {
+  const session = await auth();
+
+  if (session?.user.status === "active") {
+    redirect("/today");
+  }
+
+  if (session?.user) {
     redirect("/pending");
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-6">
-      <div className="w-full max-w-sm">
-        <p className="font-mono text-[11px] tracking-[0.18em] text-soft mb-2">
-          STARTUP ISSUES
+    <main className="mx-auto flex min-h-screen max-w-3xl items-center px-6 py-16">
+      <section className="max-w-xl">
+        <p className="mb-3 text-sm font-medium text-neutral-500">
+          STARTUP INTELLIGENCE ARCHIVE
         </p>
-        <h1 className="text-2xl font-bold mb-2">
-          매일 아침, 오늘의 스타트업 이슈
+        <h1 className="text-4xl font-semibold tracking-tight">
+          오늘의 변화를 놓치지 않고,
+          <br />
+          어제의 정보를 잃지 않습니다.
         </h1>
-        <p className="text-sm text-soft leading-relaxed mb-8">
-          뉴스와 정부 공고를 모아두고, 중요한 것을 체크하고 묶어둡니다.
+        <p className="mt-5 leading-7 text-neutral-600">
+          승인된 내부 사용자를 위한 스타트업 뉴스·정책 아카이브입니다.
         </p>
-        <LoginButton />
-      </div>
+        <div className="mt-8">
+          <SignInButton />
+        </div>
+      </section>
     </main>
   );
 }
