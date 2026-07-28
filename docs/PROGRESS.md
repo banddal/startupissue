@@ -1,16 +1,16 @@
 # 진행 기록
 
-최종 갱신: 2026-07-24
+최종 갱신: 2026-07-28
 
 ## 현재 상태
 
 | 항목 | 값 |
 |---|---|
-| 라운드 | Round 1 — 인증 |
+| 라운드 | Round 2 — 수집·오늘 화면 |
 | 브랜치 | `codex/round1-auth` |
 | 기준 저장소 | `https://github.com/banddal/startupissue` |
-| 로컬 작업본 | `C:\Users\HP\Desktop\coding test\startup issues` |
-| 상태 | 외부 서비스 연결 전 로컬 구현 완료 |
+| 로컬 작업본 | `C:\Users\band1\Desktop\coding test\startup issues` |
+| 상태 | Neon 실환경 수집과 오늘 화면 연결 완료 |
 
 ## 확정 스택
 
@@ -42,6 +42,13 @@
 - [x] lint
 - [x] typecheck
 - [x] production build
+- [x] Round 2 수집 스키마와 Neon migration
+- [x] Platum RSS·K-Startup API 어댑터
+- [x] 멱등 수집·부분 실패 격리·실행 이력
+- [x] 카드 목록·상세와 관리자 수집 상태
+- [x] 실제 소스 3회 반복 수집 멱등성 검증
+- [x] `/today` 신규 카드 수·주요 업데이트·마지막 성공 시각
+- [x] 오늘 신규가 없을 때 최근 아카이브 폴백
 
 ## 아직 필요한 것
 
@@ -54,7 +61,9 @@
 
 ### 실제 환경 검증
 
-- [ ] Neon에 migration 적용
+- [x] Neon에 migration 적용
+- [x] Platum·K-Startup 실수집
+- [x] 같은 소스 3회 반복 수집 시 행 증가 없음
 - [ ] Google 로그인
 - [ ] pending 사용자 생성 확인
 - [ ] admin bootstrap
@@ -69,15 +78,13 @@
 
 ## 다음 라운드
 
-Round 2 목표:
+Sprint 2 남은 목표:
 
-> RSS 기사 한 건이 수집되어 카드로 오늘 화면에 보인다.
+> 카드의 정보가치를 설명 가능한 규칙으로 평가하고 오늘 화면의 정렬 근거로 사용한다.
 
 예정:
 
-- RSS 소스 하나
-- Node CLI worker
-- source item 멱등 저장
-- ingestion run
-- 카드 생성
-- 카드 목록·상세
+- 정보가치 규칙 버전과 항목별 점수 저장
+- 카드 깊이 분류
+- 주요 업데이트 배지의 실제 평가 근거 연결
+- 부분 실패와 마지막 성공 시각의 화면 세부 개선
