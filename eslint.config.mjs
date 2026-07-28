@@ -7,6 +7,13 @@ export default defineConfig([
   ...nextTypescript,
   {
     rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
+          message: "Render stored source content as text; raw HTML injection is forbidden.",
+        },
+      ],
       "no-restricted-imports": [
         "error",
         {

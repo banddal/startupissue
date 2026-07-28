@@ -67,6 +67,32 @@ pnpm exec node --env-file=.env.local scripts/bootstrap-admin.mjs
 
 `BOOTSTRAP_ADMIN_EMAIL`과 일치하는 사용자 한 명만 admin·active로 변경한다.
 
+## Round 2 수집
+
+`.env.local`에 수집 설정을 추가한다.
+
+```text
+PLATUM_RSS_URL=https://platum.kr/feed
+KSTARTUP_SERVICE_KEY=
+```
+
+DB에 쓰지 않고 파싱 결과만 확인:
+
+```bash
+pnpm worker ingest --source=platum --dry-run
+pnpm worker ingest --source=kstartup --dry-run
+```
+
+한 소스 또는 설정된 전체 소스를 DB에 저장:
+
+```bash
+pnpm worker ingest --source=platum
+pnpm worker ingest --all
+```
+
+`--all`은 소스별 실패를 격리한다. K-Startup 키가 없으면 해당 소스만 건너뛰고
+플래텀 수집은 계속한다.
+
 ## 검증
 
 ```bash

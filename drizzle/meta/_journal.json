@@ -8,6 +8,13 @@
       "when": 1784872899171,
       "tag": "0000_exotic_venom",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785132000000,
+      "tag": "0001_round2_ingestion",
+      "breakpoints": true
     }
   ]
 }

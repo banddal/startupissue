@@ -13,17 +13,20 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
+    "worker": "tsx worker/cli.ts",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "1.11.3",
     "@neondatabase/serverless": "1.1.0",
     "drizzle-orm": "0.45.2",
+    "fast-xml-parser": "^5.10.1",
     "next": "16.2.11",
     "next-auth": "5.0.0-beta.32",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "server-only": "0.0.1",
+    "ws": "^8.21.1",
     "zod": "4.4.3"
   },
   "devDependencies": {
@@ -31,12 +34,14 @@
     "@types/node": "26.1.1",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
-    "drizzle-kit": "0.31.10",
+    "@types/ws": "^8.18.1",
     "dotenv": "17.4.2",
+    "drizzle-kit": "0.31.10",
     "eslint": "9.39.5",
     "eslint-config-next": "16.2.11",
     "jsdom": "29.1.1",
     "tailwindcss": "4.3.3",
+    "tsx": "^4.23.1",
     "typescript": "6.0.3",
     "vitest": "4.1.10"
   },
