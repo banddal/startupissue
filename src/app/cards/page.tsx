@@ -1,7 +1,6 @@
 import { and, desc, isNull, ne } from "drizzle-orm";
 import Link from "next/link";
 
-import { requireActiveUser } from "@/server/auth/guards";
 import { db } from "@/server/db";
 import { cards } from "@/server/db/schema";
 
@@ -13,8 +12,6 @@ const dateFormatter = new Intl.DateTimeFormat("ko-KR", {
 });
 
 export default async function CardsPage() {
-  await requireActiveUser();
-
   const items = await db
     .select({
       id: cards.id,

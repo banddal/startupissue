@@ -3,8 +3,13 @@ import { describe, expect, it } from "vitest";
 import { destinationFor } from "./access";
 
 describe("destinationFor", () => {
-  it("redirects anonymous users away from protected pages", () => {
-    expect(destinationFor(null, "/today")).toBe("/");
+  it("allows anonymous users to view the today page", () => {
+    expect(destinationFor(null, "/today")).toBeNull();
+  });
+
+  it("allows anonymous users to view card pages", () => {
+    expect(destinationFor(null, "/cards")).toBeNull();
+    expect(destinationFor(null, "/cards/card-1")).toBeNull();
   });
 
   it("allows anonymous users to open the sign-in page", () => {
@@ -21,10 +26,10 @@ describe("destinationFor", () => {
     ).toBeNull();
   });
 
-  it("redirects pending users away from product data", () => {
+  it("allows pending users to view public product data", () => {
     expect(
       destinationFor({ role: "member", status: "pending" }, "/today"),
-    ).toBe("/pending");
+    ).toBeNull();
   });
 
   it("redirects active members away from admin pages", () => {
@@ -39,9 +44,9 @@ describe("destinationFor", () => {
     ).toBeNull();
   });
 
-  it("blocks suspended users on their next request", () => {
+  it("allows suspended users to view public product data", () => {
     expect(
       destinationFor({ role: "member", status: "suspended" }, "/today"),
-    ).toBe("/pending");
+    ).toBeNull();
   });
 });

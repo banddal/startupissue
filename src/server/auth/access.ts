@@ -11,6 +11,15 @@ export function destinationFor(
   user: AccessUser | null,
   pathname: string,
 ): AccessDestination | null {
+  const isPublicContent =
+    pathname === "/today" ||
+    pathname === "/cards" ||
+    pathname.startsWith("/cards/");
+
+  if (isPublicContent) {
+    return null;
+  }
+
   const isPublic =
     pathname === "/" ||
     pathname.startsWith("/api/auth") ||

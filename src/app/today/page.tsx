@@ -2,7 +2,7 @@ import { and, count, desc, eq, gte, isNull, ne } from "drizzle-orm";
 import Link from "next/link";
 
 import { SignOutButton } from "@/components/auth-buttons";
-import { requireActiveUser } from "@/server/auth/guards";
+import { getCurrentUser } from "@/server/auth/guards";
 import { db } from "@/server/db";
 import {
   cards,
@@ -38,7 +38,7 @@ function startOfTodayInSeoul(now = new Date()) {
 }
 
 export default async function TodayPage() {
-  const user = await requireActiveUser();
+  const user = await getCurrentUser();
   const todayStartedAt = startOfTodayInSeoul();
   const visibleCard = and(
     ne(cards.reviewStatus, "hidden"),
@@ -92,7 +92,7 @@ export default async function TodayPage() {
           <h1 className="mt-1 text-3xl font-semibold">주요 업데이트</h1>
         </div>
         <div className="flex items-center gap-3">
-          {user.role === "admin" ? (
+          {user?.role === "admin" ? (
             <>
               <Link className="text-sm underline" href="/admin/ingestion">
                 수집 상태
@@ -105,7 +105,7 @@ export default async function TodayPage() {
           <Link className="text-sm underline" href="/cards">
             전체 카드
           </Link>
-          <SignOutButton />
+          {user ? <SignOutButton /> : null}
         </div>
       </header>
 

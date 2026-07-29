@@ -2,7 +2,6 @@ import { and, eq, isNull, ne } from "drizzle-orm";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { requireActiveUser } from "@/server/auth/guards";
 import { db } from "@/server/db";
 import { cards, cardSources, sourceItems, sources } from "@/server/db/schema";
 
@@ -19,7 +18,6 @@ export default async function CardDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireActiveUser();
   const { id } = await params;
 
   const [item] = await db
