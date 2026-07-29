@@ -11,6 +11,10 @@ describe("destinationFor", () => {
     expect(destinationFor(null, "/")).toBeNull();
   });
 
+  it("allows uptime checks without authentication", () => {
+    expect(destinationFor(null, "/api/health")).toBeNull();
+  });
+
   it("keeps pending users on the pending page", () => {
     expect(
       destinationFor({ role: "member", status: "pending" }, "/pending"),

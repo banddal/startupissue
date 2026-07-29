@@ -102,10 +102,19 @@ pnpm test
 pnpm build
 ```
 
+## Vercel 배포
+
+웹 앱은 Vercel, 데이터베이스는 Neon, 수집 CLI는 별도 워커로 운영한다. Vercel에는
+`DATABASE_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`을 등록하고
+Google OAuth에 프로덕션 콜백 URI를 추가해야 한다.
+
+상세 절차와 배포 후 점검 항목은 `docs/DEPLOYMENT.md`를 따른다.
+
 ## 문서
 
 - `docs/ARCHITECTURE.md`
 - `docs/PRD.md`
 - `docs/DEVELOPMENT.md`
+- `docs/DEPLOYMENT.md`
 - `docs/decisions/002-auth-and-neon.md`
 - `docs/HANDOFF.md`

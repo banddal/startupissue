@@ -14,6 +14,7 @@ export function destinationFor(
   const isPublic =
     pathname === "/" ||
     pathname.startsWith("/api/auth") ||
+    pathname === "/api/health" ||
     pathname.startsWith("/_next");
 
   if (!user) {
