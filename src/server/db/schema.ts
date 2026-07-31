@@ -18,6 +18,7 @@ import {
 import { sql } from "drizzle-orm";
 import type { AdapterAccountType } from "next-auth/adapters";
 import { USER_ROLES, USER_STATUSES } from "@/lib/auth-types";
+import type { CompanyStatus } from "@/lib/companies";
 
 export const userRole = pgEnum("user_role", USER_ROLES);
 export const userStatus = pgEnum("user_status", USER_STATUSES);
@@ -105,6 +106,13 @@ export type ReviewStatus = "auto" | "pending_review" | "approved" | "hidden";
 export type DedupeStatus = "unique" | "has_candidates" | "merged_into";
 export type MergeCandidateStatus = "open" | "merged" | "rejected";
 export type CardDepth = "research" | "news" | "tech";
+export type CompanyVerificationKind =
+  | "government_program"
+  | "tips"
+  | "portfolio"
+  | "demo_day"
+  | "self_declared"
+  | "other";
 export type InformationValueBadge =
   | "major_change"
   | "new_signal"
@@ -235,6 +243,69 @@ export const cardValueAssessments = pgTable(
       table.ruleVersion,
     ),
     index("card_value_assessments_score_idx").on(table.score),
+  ],
+);
+
+export const companies = pgTable(
+  "companies",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: text("name").notNull(),
+    normalizedName: text("normalized_name").notNull(),
+    aliases: text("aliases").array().notNull().default(sql`ARRAY[]::text[]`),
+    sectorKey: text("sector_key").notNull(),
+    status: text("status").$type<CompanyStatus>().notNull().default("candidate"),
+    createdBy: uuid("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    reviewedBy: uuid("reviewed_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    reviewedAt: timestamp("reviewed_at", { mode: "date", withTimezone: true }),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("companies_sector_normalized_name_unique").on(
+      table.sectorKey,
+      table.normalizedName,
+    ),
+    index("companies_sector_status_idx").on(table.sectorKey, table.status),
+  ],
+);
+
+export const companyVerifications = pgTable(
+  "company_verifications",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    companyId: uuid("company_id")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<CompanyVerificationKind>().notNull(),
+    sourceName: text("source_name").notNull(),
+    sourceUrl: text("source_url"),
+    observedAt: timestamp("observed_at", { mode: "date", withTimezone: true })
+      .notNull(),
+    note: text("note"),
+    createdBy: uuid("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("company_verifications_company_idx").on(table.companyId),
+    uniqueIndex("company_verifications_evidence_unique").on(
+      table.companyId,
+      table.kind,
+      table.sourceName,
+      table.observedAt,
+    ),
   ],
 );
 
@@ -407,3 +478,4 @@ export type AppUser = typeof users.$inferSelect;
 export type Source = typeof sources.$inferSelect;
 export type SourceItem = typeof sourceItems.$inferSelect;
 export type Card = typeof cards.$inferSelect;
+export type Company = typeof companies.$inferSelect;

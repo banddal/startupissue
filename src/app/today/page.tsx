@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/server/auth/guards";
 import { db } from "@/server/db";
 import {
   cards,
+  companies,
   ingestionRuns,
   sourceItems,
   sources,
@@ -57,6 +58,7 @@ export default async function TodayPage() {
     todayCountResult,
     majorCountResult,
     pendingReviewResult,
+    companyCandidateResult,
     lastSuccessfulRun,
     lastRun,
   ] = await Promise.all([
@@ -109,6 +111,10 @@ export default async function TodayPage() {
         ),
       ),
     db
+      .select({ value: count() })
+      .from(companies)
+      .where(eq(companies.status, "candidate")),
+    db
       .select({ finishedAt: ingestionRuns.finishedAt })
       .from(ingestionRuns)
       .where(eq(ingestionRuns.status, "success"))
@@ -130,6 +136,7 @@ export default async function TodayPage() {
   const todayCount = todayCountResult[0]?.value ?? 0;
   const majorCount = majorCountResult[0]?.value ?? 0;
   const pendingReviewCount = pendingReviewResult[0]?.value ?? 0;
+  const companyCandidateCount = companyCandidateResult[0]?.value ?? 0;
   const todayCards = latestCards.filter(
     (card) => card.collectedAt >= todayStartedAt,
   );
@@ -153,6 +160,9 @@ export default async function TodayPage() {
               <Link className="text-sm underline" href="/admin/users">
                 사용자 관리
               </Link>
+              <Link className="text-sm underline" href="/admin/companies">
+                기업 명부
+              </Link>
             </>
           ) : null}
           <Link className="text-sm underline" href="/cards">
@@ -162,7 +172,7 @@ export default async function TodayPage() {
         </div>
       </header>
 
-      <section className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <div className="rounded-2xl border border-neutral-200 bg-white p-5">
           <p className="text-sm text-neutral-500">오늘 새 카드</p>
           <p className="mt-2 text-3xl font-semibold">{todayCount}</p>
@@ -176,6 +186,11 @@ export default async function TodayPage() {
           <p className="text-sm text-neutral-500">검토 대기</p>
           <p className="mt-2 text-3xl font-semibold">{pendingReviewCount}</p>
           <p className="mt-2 text-xs text-neutral-500">전체 공개 카드 기준</p>
+        </div>
+        <div className="rounded-2xl border border-neutral-200 bg-white p-5">
+          <p className="text-sm text-neutral-500">새 기업 후보</p>
+          <p className="mt-2 text-3xl font-semibold">{companyCandidateCount}</p>
+          <p className="mt-2 text-xs text-neutral-500">관리자 승인 대기</p>
         </div>
         <div className="rounded-2xl border border-neutral-200 bg-white p-5">
           <p className="text-sm text-neutral-500">마지막 수집 성공</p>
