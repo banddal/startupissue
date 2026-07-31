@@ -1,4 +1,3 @@
-import { refreshEcosystemIndicators } from "../../../../../scripts/refresh-ecosystem-indicators";
 import { isCronAuthorized } from "@/lib/cron-auth";
 
 export const dynamic = "force-dynamic";
@@ -14,8 +13,10 @@ export async function GET(request: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const output = await refreshEcosystemIndicators();
-  return Response.json(output, {
-    status: output.errors.length > 0 ? 207 : 200,
-  });
+  return Response.json(
+    {
+      error: "Legacy ecosystem indicator collection is disabled by PRD v0.3.",
+    },
+    { status: 410 },
+  );
 }

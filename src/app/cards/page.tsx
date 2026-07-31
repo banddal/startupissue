@@ -18,8 +18,6 @@ export default async function CardsPage() {
       title: cards.title,
       summary: cards.summary,
       publishedAt: cards.publishedAt,
-      reviewStatus: cards.reviewStatus,
-      sectorTags: cards.sectorTags,
     })
     .from(cards)
     .where(and(ne(cards.reviewStatus, "hidden"), isNull(cards.mergedIntoCardId)))
@@ -30,8 +28,8 @@ export default async function CardsPage() {
     <main className="mx-auto max-w-5xl px-6 py-10">
       <header className="flex items-end justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-neutral-500">Round 2</p>
-          <h1 className="mt-1 text-3xl font-semibold">수집 카드</h1>
+          <p className="text-sm font-medium text-neutral-500">아카이브</p>
+          <h1 className="mt-1 text-3xl font-semibold">전체 자료</h1>
         </div>
         <Link className="text-sm underline" href="/today">
           오늘로 돌아가기
@@ -57,16 +55,6 @@ export default async function CardsPage() {
                   <time dateTime={item.publishedAt.toISOString()}>
                     {dateFormatter.format(item.publishedAt)}
                   </time>
-                  <span>·</span>
-                  <span>{item.reviewStatus}</span>
-                  {item.sectorTags.map((tag) => (
-                    <span
-                      className="rounded-full bg-neutral-100 px-2 py-1"
-                      key={tag}
-                    >
-                      {tag}
-                    </span>
-                  ))}
                 </div>
                 <h2 className="mt-3 text-xl font-semibold">{item.title}</h2>
                 <p className="mt-2 line-clamp-3 text-sm leading-6 text-neutral-600">
