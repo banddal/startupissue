@@ -29,6 +29,13 @@
       "when": 1785542400000,
       "tag": "0003_company_roster",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785546000000,
+      "tag": "0004_card_quality_reviews",
+      "breakpoints": true
     }
   ]
 }

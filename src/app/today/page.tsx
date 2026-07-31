@@ -163,6 +163,9 @@ export default async function TodayPage() {
               <Link className="text-sm underline" href="/admin/companies">
                 기업 명부
               </Link>
+              <Link className="text-sm underline" href="/admin/quality">
+                품질 평가
+              </Link>
             </>
           ) : null}
           <Link className="text-sm underline" href="/cards">

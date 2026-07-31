@@ -19,6 +19,7 @@ import { sql } from "drizzle-orm";
 import type { AdapterAccountType } from "next-auth/adapters";
 import { USER_ROLES, USER_STATUSES } from "@/lib/auth-types";
 import type { CompanyStatus } from "@/lib/companies";
+import type { CardQualityVerdict } from "@/lib/card-quality";
 
 export const userRole = pgEnum("user_role", USER_ROLES);
 export const userStatus = pgEnum("user_status", USER_STATUSES);
@@ -243,6 +244,36 @@ export const cardValueAssessments = pgTable(
       table.ruleVersion,
     ),
     index("card_value_assessments_score_idx").on(table.score),
+  ],
+);
+
+export const cardQualityReviews = pgTable(
+  "card_quality_reviews",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    cardId: uuid("card_id")
+      .notNull()
+      .references(() => cards.id, { onDelete: "cascade" }),
+    reviewerId: uuid("reviewer_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    verdict: text("verdict").$type<CardQualityVerdict>().notNull(),
+    note: text("note"),
+    scoreSnapshot: integer("score_snapshot"),
+    ruleVersion: text("rule_version"),
+    reviewedAt: timestamp("reviewed_at", { mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("card_quality_reviews_card_reviewer_unique").on(
+      table.cardId,
+      table.reviewerId,
+    ),
+    index("card_quality_reviews_verdict_idx").on(table.verdict),
   ],
 );
 
