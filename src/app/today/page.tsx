@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, isNull, ne, sql } from "drizzle-orm";
 import Link from "next/link";
 
 import { SignOutButton } from "@/components/auth-buttons";
@@ -7,6 +7,8 @@ import { db } from "@/server/db";
 import {
   cards,
   companies,
+  indicators,
+  indicatorValues,
   ingestionRuns,
   sourceItems,
   sources,
@@ -61,6 +63,7 @@ export default async function TodayPage() {
     companyCandidateResult,
     lastSuccessfulRun,
     lastRun,
+    indicatorRows,
   ] = await Promise.all([
     db
       .select({
@@ -131,6 +134,30 @@ export default async function TodayPage() {
       .innerJoin(sources, eq(sources.id, ingestionRuns.sourceId))
       .orderBy(desc(ingestionRuns.startedAt))
       .limit(1),
+    db
+      .select({
+        id: indicators.id,
+        name: indicators.name,
+        unit: indicators.unit,
+        cadence: indicators.cadence,
+        period: indicatorValues.period,
+        value: indicatorValues.value,
+        changeValue: indicatorValues.changeValue,
+        status: indicatorValues.status,
+        observedAt: indicatorValues.observedAt,
+      })
+      .from(indicators)
+      .leftJoin(indicatorValues, eq(indicatorValues.indicatorId, indicators.id))
+      .where(
+        and(
+          eq(indicators.active, true),
+          eq(indicators.group, "ecosystem"),
+        ),
+      )
+      .orderBy(
+        asc(indicators.displayOrder),
+        desc(indicatorValues.periodEnd),
+      ),
   ]);
 
   const todayCount = todayCountResult[0]?.value ?? 0;
@@ -143,6 +170,14 @@ export default async function TodayPage() {
   const displayedCards = todayCards.length > 0 ? todayCards : latestCards;
   const highlights = displayedCards.slice(0, 5);
   const isShowingArchive = todayCards.length === 0 && latestCards.length > 0;
+  const latestIndicatorById = new Map<
+    string,
+    (typeof indicatorRows)[number]
+  >();
+  for (const row of indicatorRows) {
+    if (!latestIndicatorById.has(row.id)) latestIndicatorById.set(row.id, row);
+  }
+  const dashboardIndicators = [...latestIndicatorById.values()];
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
@@ -175,6 +210,53 @@ export default async function TodayPage() {
         </div>
       </header>
 
+      <section className="mt-10">
+        <div>
+          <p className="text-sm font-medium text-neutral-500">상황판 v1</p>
+          <h2 className="mt-1 text-2xl font-semibold">생태계 현황</h2>
+          <p className="mt-2 text-sm text-neutral-500">
+            지표 산출 기준과 소스가 승인되면 현재값과 전기 대비 변화가 표시됩니다.
+          </p>
+        </div>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {dashboardIndicators.map((indicator) => {
+            const hasValue =
+              indicator.status !== "unavailable" && indicator.value !== null;
+            const change =
+              indicator.changeValue === null
+                ? null
+                : Number(indicator.changeValue);
+            return (
+              <article
+                className="rounded-2xl border border-neutral-200 bg-white p-5"
+                key={indicator.id}
+              >
+                <p className="text-sm text-neutral-500">{indicator.name}</p>
+                <p className="mt-2 text-3xl font-semibold">
+                  {hasValue
+                    ? `${Number(indicator.value).toLocaleString("ko-KR")} ${indicator.unit}`
+                    : "데이터 없음"}
+                </p>
+                <p className="mt-2 text-xs text-neutral-500">
+                  {hasValue && change !== null
+                    ? `전기 대비 ${change > 0 ? "+" : ""}${change.toLocaleString("ko-KR")} ${indicator.unit}`
+                    : "전기 대비 미측정"}
+                </p>
+                <p className="mt-3 text-xs text-neutral-400">
+                  {indicator.period
+                    ? `${indicator.period} · ${indicator.cadence}`
+                    : `수집 준비 중 · ${indicator.cadence}`}
+                </p>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <div className="mt-12">
+        <p className="text-sm font-medium text-neutral-500">아카이브 운영</p>
+        <h2 className="mt-1 text-2xl font-semibold">오늘 수집 현황</h2>
+      </div>
       <section className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <div className="rounded-2xl border border-neutral-200 bg-white p-5">
           <p className="text-sm text-neutral-500">오늘 새 카드</p>

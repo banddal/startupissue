@@ -2,6 +2,7 @@ import {
   type AnyPgColumn,
   boolean,
   check,
+  date,
   index,
   integer,
   jsonb,
@@ -114,6 +115,9 @@ export type CompanyVerificationKind =
   | "demo_day"
   | "self_declared"
   | "other";
+export type IndicatorGroup = "ecosystem" | "market" | "macro";
+export type IndicatorCadence = "daily" | "monthly" | "quarterly" | "annual";
+export type IndicatorValueStatus = "available" | "estimated" | "unavailable";
 export type InformationValueBadge =
   | "major_change"
   | "new_signal"
@@ -336,6 +340,84 @@ export const companyVerifications = pgTable(
       table.kind,
       table.sourceName,
       table.observedAt,
+    ),
+  ],
+);
+
+export const indicators = pgTable(
+  "indicators",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    code: text("code").notNull(),
+    name: text("name").notNull(),
+    description: text("description"),
+    group: text("group").$type<IndicatorGroup>().notNull(),
+    unit: text("unit").notNull(),
+    cadence: text("cadence").$type<IndicatorCadence>().notNull(),
+    sourceConfig: jsonb("source_config")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    displayOrder: smallint("display_order").notNull().default(0),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("indicators_code_unique").on(table.code),
+    index("indicators_group_active_idx").on(table.group, table.active),
+  ],
+);
+
+export const indicatorValues = pgTable(
+  "indicator_values",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    indicatorId: uuid("indicator_id")
+      .notNull()
+      .references(() => indicators.id, { onDelete: "cascade" }),
+    period: text("period").notNull(),
+    periodStart: date("period_start", { mode: "date" }).notNull(),
+    periodEnd: date("period_end", { mode: "date" }).notNull(),
+    value: numeric("value", { precision: 24, scale: 4 }),
+    previousValue: numeric("previous_value", { precision: 24, scale: 4 }),
+    changeValue: numeric("change_value", { precision: 24, scale: 4 }),
+    status: text("status")
+      .$type<IndicatorValueStatus>()
+      .notNull()
+      .default("available"),
+    sourceLabel: text("source_label"),
+    sourceUrl: text("source_url"),
+    observedAt: timestamp("observed_at", { mode: "date", withTimezone: true })
+      .notNull(),
+    collectedAt: timestamp("collected_at", { mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("indicator_values_indicator_period_unique").on(
+      table.indicatorId,
+      table.period,
+    ),
+    index("indicator_values_period_idx").on(table.period),
+    check(
+      "indicator_values_status_value_consistent",
+      sql`(${table.status} = 'unavailable' and ${table.value} is null) or (${table.status} <> 'unavailable' and ${table.value} is not null)`,
+    ),
+    check(
+      "indicator_values_period_ordered",
+      sql`${table.periodStart} <= ${table.periodEnd}`,
     ),
   ],
 );
