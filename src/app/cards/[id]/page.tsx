@@ -28,6 +28,10 @@ export default async function CardDetailPage({
       publishedAt: cards.publishedAt,
       collectedAt: cards.collectedAt,
       bodyTruncated: cards.bodyTruncated,
+      informationValueScore: cards.informationValueScore,
+      informationValueReason: cards.informationValueReason,
+      informationValueBadge: cards.informationValueBadge,
+      informationValueRuleVersion: cards.informationValueRuleVersion,
       bodyText: sourceItems.bodyText,
       canonicalUrl: sourceItems.canonicalUrl,
       sourceName: sources.name,
@@ -66,6 +70,18 @@ export default async function CardDetailPage({
             <dd>{dateFormatter.format(item.collectedAt)}</dd>
           </div>
         </dl>
+        {item.informationValueReason ? (
+          <section className="mt-6 rounded-2xl bg-neutral-100 p-5">
+            <h2 className="font-semibold">정보가치</h2>
+            <p className="mt-2 text-sm text-neutral-700">
+              점수 {item.informationValueScore} · {item.informationValueReason}
+            </p>
+            <p className="mt-2 text-xs text-neutral-500">
+              배지 {item.informationValueBadge} · 규칙{" "}
+              {item.informationValueRuleVersion}
+            </p>
+          </section>
+        ) : null}
         <p className="mt-8 whitespace-pre-wrap text-base leading-8 text-neutral-800">
           {item.bodyText || item.summary}
         </p>

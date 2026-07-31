@@ -2,13 +2,20 @@ import { and, eq } from "drizzle-orm";
 
 import {
   cards,
+  cardValueAssessments,
   cardSources,
+  informationValueRuleVersions,
   ingestionRuns,
   processingAttempts,
   sourceItems,
   sources,
 } from "../src/server/db/schema";
 import { makeSummary, normalizeItem } from "./core/normalize";
+import {
+  assessInformationValue,
+  INFORMATION_VALUE_RULE_VERSION,
+  INFORMATION_VALUE_WEIGHTS,
+} from "./core/information-value";
 import { createWorkerDatabase } from "./db";
 import type { NormalizedSourceItem, RawSourceItem, SourceAdapter } from "./types";
 
@@ -91,16 +98,75 @@ function sourceItemValues(
 async function persistNormalizedItem(
   db: ReturnType<typeof createWorkerDatabase>["db"],
   sourceId: string,
+  sourceTier: number,
   item: NormalizedSourceItem,
 ) {
   return db.transaction(async (tx) => {
+    const assessCard = async (cardId: string) => {
+      const evaluatedAt = new Date();
+      const assessment = assessInformationValue({
+        sourceTier,
+        publishedAt: item.publishedAt,
+        evaluatedAt,
+        hasDuplicateCandidates: false,
+      });
+
+      await tx
+        .insert(informationValueRuleVersions)
+        .values({
+          version: INFORMATION_VALUE_RULE_VERSION,
+          weights: INFORMATION_VALUE_WEIGHTS,
+          active: true,
+        })
+        .onConflictDoNothing({ target: informationValueRuleVersions.version });
+
+      await tx
+        .insert(cardValueAssessments)
+        .values({
+          cardId,
+          ruleVersion: INFORMATION_VALUE_RULE_VERSION,
+          score: assessment.score,
+          breakdown: assessment.breakdown,
+          reason: assessment.reason,
+          badge: assessment.badge,
+          evaluatedAt,
+        })
+        .onConflictDoUpdate({
+          target: [
+            cardValueAssessments.cardId,
+            cardValueAssessments.ruleVersion,
+          ],
+          set: {
+            score: assessment.score,
+            breakdown: assessment.breakdown,
+            reason: assessment.reason,
+            badge: assessment.badge,
+            evaluatedAt,
+          },
+        });
+
+      await tx
+        .update(cards)
+        .set({
+          informationValueScore: assessment.score,
+          informationValueReason: assessment.reason,
+          informationValueBadge: assessment.badge,
+          informationValueRuleVersion: INFORMATION_VALUE_RULE_VERSION,
+          informationValueAssessedAt: evaluatedAt,
+          updatedAt: evaluatedAt,
+        })
+        .where(eq(cards.id, cardId));
+    };
+
     const [existing] = await tx
       .select({
         id: sourceItems.id,
         contentHash: sourceItems.contentHash,
         status: sourceItems.status,
+        cardId: cards.id,
       })
       .from(sourceItems)
+      .leftJoin(cards, eq(cards.primarySourceItemId, sourceItems.id))
       .where(itemIdentity(item, sourceId))
       .limit(1);
 
@@ -131,11 +197,12 @@ async function persistNormalizedItem(
           sourceItemId: existing.id,
           isPrimary: true,
         });
+        await assessCard(card.id);
         return "created";
       }
 
       if (changed) {
-        await tx
+        const [updatedCard] = await tx
           .update(cards)
           .set({
             title: item.title,
@@ -144,7 +211,11 @@ async function persistNormalizedItem(
             bodyTruncated: item.bodyTruncated,
             updatedAt: new Date(),
           })
-          .where(eq(cards.primarySourceItemId, existing.id));
+          .where(eq(cards.primarySourceItemId, existing.id))
+          .returning({ id: cards.id });
+        if (updatedCard) await assessCard(updatedCard.id);
+      } else if (existing.cardId) {
+        await assessCard(existing.cardId);
       }
 
       return changed ? "updated" : "duplicate";
@@ -175,6 +246,7 @@ async function persistNormalizedItem(
       sourceItemId: createdItem.id,
       isPrimary: true,
     });
+    await assessCard(card.id);
     await tx
       .update(sourceItems)
       .set({ status: "carded", updatedAt: new Date() })
@@ -328,7 +400,12 @@ export async function runPersistentIngestion(
         }
 
         try {
-          const result = await persistNormalizedItem(worker.db, source.id, normalized);
+          const result = await persistNormalizedItem(
+            worker.db,
+            source.id,
+            adapter.key === "kstartup" ? 1 : 2,
+            normalized,
+          );
           counts[result] += 1;
         } catch (error) {
           counts.failed += 1;

@@ -15,6 +15,13 @@
       "when": 1785132000000,
       "tag": "0001_round2_ingestion",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785308400000,
+      "tag": "0002_information_value_v1",
+      "breakpoints": true
     }
   ]
 }

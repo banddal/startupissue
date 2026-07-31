@@ -35,6 +35,17 @@ export default async function AdminIngestionPage() {
     .innerJoin(sources, eq(sources.id, ingestionRuns.sourceId))
     .orderBy(desc(ingestionRuns.startedAt))
     .limit(100);
+  // This dynamic server page intentionally evaluates the operational window per request.
+  // eslint-disable-next-line react-hooks/purity
+  const recentBoundary = Date.now() - 24 * 60 * 60 * 1000;
+  const recentRuns = runs.filter(
+    (run) => run.startedAt.getTime() >= recentBoundary,
+  );
+  const recentFailedItems = recentRuns.reduce(
+    (total, run) => total + run.failedCount,
+    0,
+  );
+  const healthyRuns = recentRuns.filter((run) => run.status === "success").length;
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
@@ -47,6 +58,21 @@ export default async function AdminIngestionPage() {
           카드 목록
         </Link>
       </header>
+
+      <section className="mt-8 grid gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-5">
+          <p className="text-sm text-neutral-500">최근 24시간 실행</p>
+          <p className="mt-2 text-3xl font-semibold">{recentRuns.length}</p>
+        </div>
+        <div className="rounded-2xl border border-neutral-200 bg-white p-5">
+          <p className="text-sm text-neutral-500">정상 완료</p>
+          <p className="mt-2 text-3xl font-semibold">{healthyRuns}</p>
+        </div>
+        <div className="rounded-2xl border border-neutral-200 bg-white p-5">
+          <p className="text-sm text-neutral-500">실패 항목</p>
+          <p className="mt-2 text-3xl font-semibold">{recentFailedItems}</p>
+        </div>
+      </section>
 
       <div className="mt-8 overflow-x-auto rounded-2xl border border-neutral-200 bg-white">
         <table className="w-full min-w-4xl text-left text-sm">

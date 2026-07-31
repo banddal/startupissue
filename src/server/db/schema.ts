@@ -105,6 +105,16 @@ export type ReviewStatus = "auto" | "pending_review" | "approved" | "hidden";
 export type DedupeStatus = "unique" | "has_candidates" | "merged_into";
 export type MergeCandidateStatus = "open" | "merged" | "rejected";
 export type CardDepth = "research" | "news" | "tech";
+export type InformationValueBadge =
+  | "major_change"
+  | "new_signal"
+  | "follow_up"
+  | "reference";
+export type InformationValueBreakdown = {
+  sourceTier: { score: number; reason: string };
+  freshness: { score: number; reason: string };
+  duplicateRisk: { score: number; reason: string };
+};
 
 export const sources = pgTable(
   "sources",
@@ -155,6 +165,15 @@ export const cards = pgTable(
     ),
     sectorTags: text("sector_tags").array().notNull().default(sql`ARRAY[]::text[]`),
     bodyTruncated: boolean("body_truncated").notNull().default(false),
+    informationValueScore: integer("information_value_score"),
+    informationValueReason: text("information_value_reason"),
+    informationValueBadge: text("information_value_badge")
+      .$type<InformationValueBadge>(),
+    informationValueRuleVersion: text("information_value_rule_version"),
+    informationValueAssessedAt: timestamp("information_value_assessed_at", {
+      mode: "date",
+      withTimezone: true,
+    }),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -166,6 +185,56 @@ export const cards = pgTable(
     index("cards_published_at_idx").on(table.publishedAt),
     index("cards_review_status_idx").on(table.reviewStatus),
     index("cards_merged_into_card_id_idx").on(table.mergedIntoCardId),
+    index("cards_information_value_idx").on(
+      table.informationValueScore,
+      table.publishedAt,
+    ),
+  ],
+);
+
+export const informationValueRuleVersions = pgTable(
+  "information_value_rule_versions",
+  {
+    version: text("version").primaryKey(),
+    weights: jsonb("weights").$type<Record<string, unknown>>().notNull(),
+    active: boolean("active").notNull().default(false),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("information_value_one_active")
+      .on(table.active)
+      .where(sql`${table.active} = true`),
+  ],
+);
+
+export const cardValueAssessments = pgTable(
+  "card_value_assessments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    cardId: uuid("card_id")
+      .notNull()
+      .references(() => cards.id, { onDelete: "cascade" }),
+    ruleVersion: text("rule_version")
+      .notNull()
+      .references(() => informationValueRuleVersions.version, {
+        onDelete: "restrict",
+      }),
+    score: integer("score").notNull(),
+    breakdown: jsonb("breakdown").$type<InformationValueBreakdown>().notNull(),
+    reason: text("reason").notNull(),
+    badge: text("badge").$type<InformationValueBadge>().notNull(),
+    evaluatedAt: timestamp("evaluated_at", { mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("card_value_assessments_card_rule_unique").on(
+      table.cardId,
+      table.ruleVersion,
+    ),
+    index("card_value_assessments_score_idx").on(table.score),
   ],
 );
 
