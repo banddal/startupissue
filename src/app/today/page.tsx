@@ -137,6 +137,7 @@ export default async function TodayPage() {
     db
       .select({
         id: indicators.id,
+        code: indicators.code,
         name: indicators.name,
         unit: indicators.unit,
         cadence: indicators.cadence,
@@ -206,6 +207,9 @@ export default async function TodayPage() {
           <Link className="text-sm underline" href="/cards">
             전체 카드
           </Link>
+          <Link className="text-sm underline" href="/papers">
+            논문
+          </Link>
           {user ? <SignOutButton /> : null}
         </div>
       </header>
@@ -247,6 +251,14 @@ export default async function TodayPage() {
                     ? `${indicator.period} · ${indicator.cadence}`
                     : `수집 준비 중 · ${indicator.cadence}`}
                 </p>
+                {indicator.code === "ecosystem_new_papers" ? (
+                  <Link
+                    className="mt-4 inline-block text-xs font-medium underline"
+                    href="/papers"
+                  >
+                    최신 논문 보기
+                  </Link>
+                ) : null}
               </article>
             );
           })}

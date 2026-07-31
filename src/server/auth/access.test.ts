@@ -12,6 +12,11 @@ describe("destinationFor", () => {
     expect(destinationFor(null, "/cards/card-1")).toBeNull();
   });
 
+  it("allows anonymous users to view research paper pages", () => {
+    expect(destinationFor(null, "/papers")).toBeNull();
+    expect(destinationFor(null, "/papers/paper-1")).toBeNull();
+  });
+
   it("allows anonymous users to open the sign-in page", () => {
     expect(destinationFor(null, "/")).toBeNull();
   });

@@ -11,11 +11,13 @@ import {
   companies,
   indicators,
   indicatorValues,
+  researchPapers,
 } from "../src/server/db/schema";
 import { createWorkerDatabase } from "../worker/db";
 import {
   DEFAULT_ARXIV_SEARCH_QUERY,
-  fetchArxivWorkCount,
+  fetchArxivPapers,
+  type ArxivPaper,
 } from "../worker/indicators/arxiv";
 import { fetchOpenAlexWorkCount } from "../worker/indicators/openalex";
 
@@ -183,18 +185,29 @@ async function refreshNewPapers(db: Database, observedAt: Date) {
     ? process.env.OPENALEX_SEARCH_QUERY!
     : (process.env.ARXIV_SEARCH_QUERY?.trim() ||
       DEFAULT_ARXIV_SEARCH_QUERY);
-  const result = openAlexConfigured
-    ? await fetchOpenAlexWorkCount({
+  let count: number;
+  let requestUrl: string;
+  let papers: ArxivPaper[] = [];
+  if (openAlexConfigured) {
+    const result = await fetchOpenAlexWorkCount({
         apiKey: process.env.OPENALEX_API_KEY!,
         query,
         periodStart: provisional.periodStart,
         periodEnd: provisional.periodEnd,
-      })
-    : await fetchArxivWorkCount({
+      });
+    count = result.count;
+    requestUrl = result.requestUrl;
+  } else {
+    const result = await fetchArxivPapers({
         query,
         periodStart: provisional.periodStart,
         periodEnd: provisional.periodEnd,
+        maxResults: 100,
       });
+    count = result.count;
+    requestUrl = result.requestUrl;
+    papers = result.papers;
+  }
   const previousValue = await previousIndicatorValue(
     db,
     indicator.id,
@@ -202,7 +215,7 @@ async function refreshNewPapers(db: Database, observedAt: Date) {
   );
   const snapshot = buildMonthlyCountSnapshot({
     at: observedAt,
-    count: result.count,
+    count,
     previousValue,
   });
 
@@ -211,7 +224,7 @@ async function refreshNewPapers(db: Database, observedAt: Date) {
     snapshot,
     observedAt,
     sourceLabel: provider,
-    sourceUrl: result.requestUrl,
+    sourceUrl: requestUrl,
     metadata: {
       calculation:
         provider === "OpenAlex"
@@ -224,6 +237,43 @@ async function refreshNewPapers(db: Database, observedAt: Date) {
     },
   });
 
+  if (papers.length > 0) {
+    const values = papers.map((paper) => ({
+      provider: "arxiv",
+      externalId: paper.externalId,
+      title: paper.title,
+      summary: paper.summary,
+      authors: paper.authors,
+      categories: paper.categories,
+      primaryCategory: paper.primaryCategory,
+      abstractUrl: paper.abstractUrl,
+      pdfUrl: paper.pdfUrl,
+      publishedAt: paper.publishedAt,
+      sourceUpdatedAt: paper.updatedAt,
+      collectedAt: observedAt,
+      updatedAt: new Date(),
+    }));
+    await db
+      .insert(researchPapers)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [researchPapers.provider, researchPapers.externalId],
+        set: {
+          title: sql`excluded.title`,
+          summary: sql`excluded.summary`,
+          authors: sql`excluded.authors`,
+          categories: sql`excluded.categories`,
+          primaryCategory: sql`excluded.primary_category`,
+          abstractUrl: sql`excluded.abstract_url`,
+          pdfUrl: sql`excluded.pdf_url`,
+          publishedAt: sql`excluded.published_at`,
+          sourceUpdatedAt: sql`excluded.source_updated_at`,
+          collectedAt: sql`excluded.collected_at`,
+          updatedAt: sql`now()`,
+        },
+      });
+  }
+
   return {
     indicator: NEW_PAPERS_CODE,
     period: snapshot.period,
@@ -231,6 +281,7 @@ async function refreshNewPapers(db: Database, observedAt: Date) {
     previousValue: snapshot.previousValue,
     changeValue: snapshot.changeValue,
     provider,
+    papersFetched: papers.length,
   };
 }
 

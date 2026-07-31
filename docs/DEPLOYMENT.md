@@ -52,7 +52,9 @@ OpenAlex 키는 무료 발급 키를 사용하며, 검색식은 지표 범위 �
 Production에는 `CRON_SECRET`을 반드시 등록한다. Vercel Cron은 매일 01:15 UTC에
 `/api/cron/indicators`를 호출하며, 이 경로는 `Authorization: Bearer
 $CRON_SECRET`이 일치할 때만 기업 수와 신규 논문 지표를 갱신한다. OpenAlex 설정이
-없으면 arXiv의 AI 핵심 카테고리 검색식을 사용한다.
+없으면 arXiv의 AI 핵심 카테고리 검색식을 사용한다. 지표 갱신은 월별 건수와 함께
+최신 논문 100건의 제목·저자·초록·분류·원문 링크를 `research_papers`에 멱등
+저장한다.
 
 ## 3. Google OAuth
 

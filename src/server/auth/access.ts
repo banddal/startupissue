@@ -14,7 +14,9 @@ export function destinationFor(
   const isPublicContent =
     pathname === "/today" ||
     pathname === "/cards" ||
-    pathname.startsWith("/cards/");
+    pathname.startsWith("/cards/") ||
+    pathname === "/papers" ||
+    pathname.startsWith("/papers/");
 
   if (isPublicContent) {
     return null;

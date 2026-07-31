@@ -422,6 +422,45 @@ export const indicatorValues = pgTable(
   ],
 );
 
+export const researchPapers = pgTable(
+  "research_papers",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    provider: text("provider").notNull(),
+    externalId: text("external_id").notNull(),
+    title: text("title").notNull(),
+    summary: text("summary").notNull(),
+    authors: text("authors").array().notNull().default(sql`ARRAY[]::text[]`),
+    categories: text("categories").array().notNull().default(sql`ARRAY[]::text[]`),
+    primaryCategory: text("primary_category"),
+    abstractUrl: text("abstract_url").notNull(),
+    pdfUrl: text("pdf_url"),
+    publishedAt: timestamp("published_at", { mode: "date", withTimezone: true })
+      .notNull(),
+    sourceUpdatedAt: timestamp("source_updated_at", {
+      mode: "date",
+      withTimezone: true,
+    }).notNull(),
+    collectedAt: timestamp("collected_at", { mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("research_papers_provider_external_unique").on(
+      table.provider,
+      table.externalId,
+    ),
+    index("research_papers_published_at_idx").on(table.publishedAt),
+    index("research_papers_primary_category_idx").on(table.primaryCategory),
+  ],
+);
+
 export const sourceItems = pgTable(
   "source_items",
   {
@@ -592,3 +631,4 @@ export type Source = typeof sources.$inferSelect;
 export type SourceItem = typeof sourceItems.$inferSelect;
 export type Card = typeof cards.$inferSelect;
 export type Company = typeof companies.$inferSelect;
+export type ResearchPaper = typeof researchPapers.$inferSelect;
