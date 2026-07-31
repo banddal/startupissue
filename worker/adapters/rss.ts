@@ -1,6 +1,7 @@
 import { XMLParser } from "fast-xml-parser";
 
 import type { RawSourceItem, SourceAdapter } from "../types";
+import type { CardType } from "../../src/lib/card-types";
 
 type XmlRecord = Record<string, unknown>;
 
@@ -89,10 +90,12 @@ export function createRssAdapter(options: {
   key: string;
   name: string;
   endpoint: string;
+  defaultCardType: CardType;
 }): SourceAdapter {
   return {
     key: options.key,
     name: options.name,
+    defaultCardType: options.defaultCardType,
     async fetch() {
       return parseRss(await fetchText(options.endpoint));
     },

@@ -4,6 +4,9 @@ import { notFound } from "next/navigation";
 
 import { db } from "@/server/db";
 import { cards, cardSources, sourceItems, sources } from "@/server/db/schema";
+import { CARD_TYPE_LABELS, CARD_TYPES } from "@/lib/card-types";
+import { getCurrentUser } from "@/server/auth/guards";
+import { updateCardType } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -19,12 +22,14 @@ export default async function CardDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const user = await getCurrentUser();
 
   const [item] = await db
     .select({
       id: cards.id,
       title: cards.title,
       summary: cards.summary,
+      type: cards.type,
       publishedAt: cards.publishedAt,
       collectedAt: cards.collectedAt,
       bodyTruncated: cards.bodyTruncated,
@@ -54,7 +59,12 @@ export default async function CardDetailPage({
         카드 목록
       </Link>
       <article className="mt-6 rounded-2xl border border-neutral-200 bg-white p-8">
-        <p className="text-sm text-neutral-500">{item.sourceName}</p>
+        <div className="flex flex-wrap items-center gap-2 text-sm text-neutral-500">
+          <span className="rounded-full bg-neutral-100 px-2 py-1 font-medium text-neutral-700">
+            {CARD_TYPE_LABELS[item.type]}
+          </span>
+          <span>{item.sourceName}</span>
+        </div>
         <h1 className="mt-2 text-3xl font-semibold leading-tight">{item.title}</h1>
         <dl className="mt-6 grid gap-2 text-sm text-neutral-600 sm:grid-cols-2">
           <div>
@@ -66,6 +76,34 @@ export default async function CardDetailPage({
             <dd>{dateFormatter.format(item.collectedAt)}</dd>
           </div>
         </dl>
+        {user?.role === "admin" ? (
+          <form
+            action={updateCardType}
+            className="mt-6 flex flex-wrap items-end gap-3 rounded-2xl bg-neutral-50 p-4"
+          >
+            <input name="cardId" type="hidden" value={item.id} />
+            <label className="grid gap-1 text-sm">
+              <span className="font-medium text-neutral-900">정보 유형</span>
+              <select
+                className="rounded-lg border border-neutral-300 bg-white px-3 py-2"
+                defaultValue={item.type}
+                name="type"
+              >
+                {CARD_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {CARD_TYPE_LABELS[type]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white"
+              type="submit"
+            >
+              유형 저장
+            </button>
+          </form>
+        ) : null}
         <p className="mt-8 whitespace-pre-wrap text-base leading-8 text-neutral-800">
           {item.bodyText || item.summary}
         </p>

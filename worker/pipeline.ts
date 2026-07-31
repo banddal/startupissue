@@ -44,6 +44,7 @@ function sourceDefinition(adapter: SourceAdapter) {
     kind: (adapter.key === "platum" ? "rss" : "api") as "rss" | "api",
     tier: adapter.key === "kstartup" ? 1 : 2,
     config: {},
+    defaultCardType: adapter.defaultCardType,
     enabled: true,
   };
 }
@@ -99,6 +100,7 @@ async function persistNormalizedItem(
   db: ReturnType<typeof createWorkerDatabase>["db"],
   sourceId: string,
   sourceTier: number,
+  defaultCardType: SourceAdapter["defaultCardType"],
   item: NormalizedSourceItem,
 ) {
   return db.transaction(async (tx) => {
@@ -183,6 +185,7 @@ async function persistNormalizedItem(
           .values({
             title: item.title,
             summary: makeSummary(item),
+            type: defaultCardType,
             primarySourceItemId: existing.id,
             publishedAt: item.publishedAt,
             reviewStatus: "pending_review",
@@ -232,6 +235,7 @@ async function persistNormalizedItem(
       .values({
         title: item.title,
         summary: makeSummary(item),
+        type: defaultCardType,
         primarySourceItemId: createdItem.id,
         publishedAt: item.publishedAt,
         reviewStatus: "pending_review",
@@ -355,7 +359,11 @@ export async function runPersistentIngestion(
       .values(sourceDefinition(adapter))
       .onConflictDoUpdate({
         target: sources.key,
-        set: { name: adapter.name, enabled: true },
+        set: {
+          name: adapter.name,
+          defaultCardType: adapter.defaultCardType,
+          enabled: true,
+        },
       })
       .returning({ id: sources.id });
     if (!source) throw new Error("Failed to register ingestion source.");
@@ -404,6 +412,7 @@ export async function runPersistentIngestion(
             worker.db,
             source.id,
             adapter.key === "kstartup" ? 1 : 2,
+            adapter.defaultCardType,
             normalized,
           );
           counts[result] += 1;

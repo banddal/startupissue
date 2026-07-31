@@ -21,6 +21,7 @@ import type { AdapterAccountType } from "next-auth/adapters";
 import { USER_ROLES, USER_STATUSES } from "@/lib/auth-types";
 import type { CompanyStatus } from "@/lib/companies";
 import type { CardQualityVerdict } from "@/lib/card-quality";
+import type { CardType } from "@/lib/card-types";
 
 export const userRole = pgEnum("user_role", USER_ROLES);
 export const userStatus = pgEnum("user_status", USER_STATUSES);
@@ -138,6 +139,10 @@ export const sources = pgTable(
     kind: text("kind").$type<SourceKind>().notNull(),
     tier: smallint("tier").notNull(),
     config: jsonb("config").$type<Record<string, unknown>>().notNull().default({}),
+    defaultCardType: text("default_card_type")
+      .$type<CardType>()
+      .notNull()
+      .default("company"),
     enabled: boolean("enabled").notNull().default(true),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
       .notNull()
@@ -155,6 +160,12 @@ export const cards = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     title: text("title").notNull(),
     summary: text("summary").notNull(),
+    type: text("type").$type<CardType>().notNull().default("company"),
+    investmentTarget: text("investment_target"),
+    investors: text("investors").array().notNull().default(sql`ARRAY[]::text[]`),
+    investmentStage: text("investment_stage"),
+    investmentAmount: numeric("investment_amount", { precision: 24, scale: 4 }),
+    investmentCurrency: text("investment_currency"),
     primarySourceItemId: uuid("primary_source_item_id").references(
       (): AnyPgColumn => sourceItems.id,
       { onDelete: "restrict" },
@@ -196,6 +207,7 @@ export const cards = pgTable(
   },
   (table) => [
     index("cards_published_at_idx").on(table.publishedAt),
+    index("cards_type_published_at_idx").on(table.type, table.publishedAt),
     index("cards_review_status_idx").on(table.reviewStatus),
     index("cards_merged_into_card_id_idx").on(table.mergedIntoCardId),
     index("cards_information_value_idx").on(

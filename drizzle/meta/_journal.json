@@ -50,6 +50,13 @@
       "when": 1785560400000,
       "tag": "0006_research_papers",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1785596400000,
+      "tag": "0007_card_information_types",
+      "breakpoints": true
     }
   ]
 }

@@ -2,6 +2,11 @@ import { and, count, desc, eq, gte, isNull, ne } from "drizzle-orm";
 import Link from "next/link";
 
 import { SignOutButton } from "@/components/auth-buttons";
+import {
+  CARD_TYPE_LABELS,
+  CARD_TYPES,
+  isCardType,
+} from "@/lib/card-types";
 import { getCurrentUser } from "@/server/auth/guards";
 import { db } from "@/server/db";
 import { cards, ingestionRuns, sourceItems, sources } from "@/server/db/schema";
@@ -32,12 +37,22 @@ function startOfTodayInSeoul(now = new Date()) {
   );
 }
 
-export default async function TodayPage() {
+export default async function TodayPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ type?: string }>;
+}) {
+  const requestedType = (await searchParams).type;
+  const selectedType = isCardType(requestedType) ? requestedType : undefined;
   const user = await getCurrentUser();
   const todayStartedAt = startOfTodayInSeoul();
   const visibleCard = and(
     ne(cards.reviewStatus, "hidden"),
     isNull(cards.mergedIntoCardId),
+  );
+  const filteredCard = and(
+    visibleCard,
+    selectedType ? eq(cards.type, selectedType) : undefined,
   );
 
   const [latestCards, todayCountResult, lastRun] = await Promise.all([
@@ -46,6 +61,7 @@ export default async function TodayPage() {
         id: cards.id,
         title: cards.title,
         summary: cards.summary,
+        type: cards.type,
         publishedAt: cards.publishedAt,
         collectedAt: cards.collectedAt,
         sourceName: sources.name,
@@ -54,13 +70,13 @@ export default async function TodayPage() {
       .from(cards)
       .leftJoin(sourceItems, eq(sourceItems.id, cards.primarySourceItemId))
       .leftJoin(sources, eq(sources.id, sourceItems.sourceId))
-      .where(visibleCard)
+      .where(filteredCard)
       .orderBy(desc(cards.publishedAt), desc(cards.collectedAt))
       .limit(20),
     db
       .select({ value: count() })
       .from(cards)
-      .where(and(visibleCard, gte(cards.collectedAt, todayStartedAt))),
+      .where(and(filteredCard, gte(cards.collectedAt, todayStartedAt))),
     db
       .select({
         status: ingestionRuns.status,
@@ -169,6 +185,35 @@ export default async function TodayPage() {
           </Link>
         </div>
 
+        <nav
+          aria-label="정보 유형"
+          className="mt-5 flex flex-wrap gap-2"
+        >
+          <Link
+            className={`rounded-full px-4 py-2 text-sm ${
+              selectedType
+                ? "bg-white text-neutral-700 ring-1 ring-neutral-200"
+                : "bg-neutral-900 text-white"
+            }`}
+            href="/today"
+          >
+            전체
+          </Link>
+          {CARD_TYPES.map((type) => (
+            <Link
+              className={`rounded-full px-4 py-2 text-sm ${
+                selectedType === type
+                  ? "bg-neutral-900 text-white"
+                  : "bg-white text-neutral-700 ring-1 ring-neutral-200"
+              }`}
+              href={`/today?type=${type}`}
+              key={type}
+            >
+              {CARD_TYPE_LABELS[type]}
+            </Link>
+          ))}
+        </nav>
+
         {displayedCards.length === 0 ? (
           <div className="mt-5 rounded-2xl border border-dashed border-neutral-300 bg-white p-10 text-center">
             <h3 className="text-lg font-medium">아직 수집된 자료가 없습니다.</h3>
@@ -185,6 +230,9 @@ export default async function TodayPage() {
                   href={`/cards/${card.id}`}
                 >
                   <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+                    <span className="rounded-full bg-neutral-100 px-2 py-1 font-medium text-neutral-700">
+                      {CARD_TYPE_LABELS[card.type]}
+                    </span>
                     <time dateTime={card.publishedAt.toISOString()}>
                       {dateFormatter.format(card.publishedAt)}
                     </time>

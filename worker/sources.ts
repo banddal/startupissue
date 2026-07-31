@@ -16,6 +16,7 @@ export function getSourceAdapters(): Partial<Record<SourceKey, SourceAdapter>> {
       key: "platum",
       name: "플래텀 RSS",
       endpoint: process.env.PLATUM_RSS_URL || "https://platum.kr/feed",
+      defaultCardType: "company",
     }),
   };
 

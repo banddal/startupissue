@@ -27,5 +27,7 @@ export type NormalizedSourceItem = {
 export type SourceAdapter = {
   key: string;
   name: string;
+  defaultCardType: CardType;
   fetch(cursor?: string): Promise<RawSourceItem[]>;
 };
+import type { CardType } from "../src/lib/card-types";
