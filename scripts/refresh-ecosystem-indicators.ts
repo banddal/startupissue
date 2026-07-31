@@ -1,5 +1,7 @@
 import dotenv from "dotenv";
 import { and, count, eq, sql } from "drizzle-orm";
+import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 
 import {
   buildCompanyCountSnapshot,
@@ -11,6 +13,10 @@ import {
   indicatorValues,
 } from "../src/server/db/schema";
 import { createWorkerDatabase } from "../worker/db";
+import {
+  DEFAULT_ARXIV_SEARCH_QUERY,
+  fetchArxivWorkCount,
+} from "../worker/indicators/arxiv";
 import { fetchOpenAlexWorkCount } from "../worker/indicators/openalex";
 
 dotenv.config({ path: ".env.local", quiet: true });
@@ -168,12 +174,27 @@ async function refreshNewPapers(db: Database, observedAt: Date) {
     count: 0,
     previousValue: null,
   });
-  const result = await fetchOpenAlexWorkCount({
-    apiKey: process.env.OPENALEX_API_KEY ?? "",
-    query: process.env.OPENALEX_SEARCH_QUERY ?? "",
-    periodStart: provisional.periodStart,
-    periodEnd: provisional.periodEnd,
-  });
+  const openAlexConfigured = Boolean(
+    process.env.OPENALEX_API_KEY?.trim() &&
+      process.env.OPENALEX_SEARCH_QUERY?.trim(),
+  );
+  const provider = openAlexConfigured ? "OpenAlex" : "arXiv";
+  const query = openAlexConfigured
+    ? process.env.OPENALEX_SEARCH_QUERY!
+    : (process.env.ARXIV_SEARCH_QUERY?.trim() ||
+      DEFAULT_ARXIV_SEARCH_QUERY);
+  const result = openAlexConfigured
+    ? await fetchOpenAlexWorkCount({
+        apiKey: process.env.OPENALEX_API_KEY!,
+        query,
+        periodStart: provisional.periodStart,
+        periodEnd: provisional.periodEnd,
+      })
+    : await fetchArxivWorkCount({
+        query,
+        periodStart: provisional.periodStart,
+        periodEnd: provisional.periodEnd,
+      });
   const previousValue = await previousIndicatorValue(
     db,
     indicator.id,
@@ -189,12 +210,17 @@ async function refreshNewPapers(db: Database, observedAt: Date) {
     indicatorId: indicator.id,
     snapshot,
     observedAt,
-    sourceLabel: "OpenAlex",
+    sourceLabel: provider,
     sourceUrl: result.requestUrl,
     metadata: {
-      calculation: "openalex_search_count",
-      query: process.env.OPENALEX_SEARCH_QUERY,
-      dateField: "publication_date",
+      calculation:
+        provider === "OpenAlex"
+          ? "openalex_search_count"
+          : "arxiv_search_count",
+      provider,
+      query,
+      dateField:
+        provider === "OpenAlex" ? "publication_date" : "submittedDate",
     },
   });
 
@@ -204,11 +230,11 @@ async function refreshNewPapers(db: Database, observedAt: Date) {
     value: snapshot.value,
     previousValue: snapshot.previousValue,
     changeValue: snapshot.changeValue,
+    provider,
   };
 }
 
-async function main() {
-  const observedAt = parseObservationDate(process.argv.slice(2));
+export async function refreshEcosystemIndicators(observedAt = new Date()) {
   const worker = createWorkerDatabase();
   const results: Array<Record<string, unknown>> = [];
   const errors: Array<{ indicator: string; message: string }> = [];
@@ -232,8 +258,17 @@ async function main() {
     await worker.close();
   }
 
-  console.log(JSON.stringify({ results, errors }, null, 2));
-  if (errors.length > 0) process.exitCode = 1;
+  return { results, errors };
 }
 
-void main();
+async function main() {
+  const observedAt = parseObservationDate(process.argv.slice(2));
+  const output = await refreshEcosystemIndicators(observedAt);
+  console.log(JSON.stringify(output, null, 2));
+  if (output.errors.length > 0) process.exitCode = 1;
+}
+
+const entryPath = process.argv[1] ? resolve(process.argv[1]) : null;
+if (entryPath && fileURLToPath(import.meta.url) === entryPath) {
+  void main();
+}

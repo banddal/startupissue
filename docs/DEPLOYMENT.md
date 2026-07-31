@@ -44,9 +44,15 @@ Vercel Project Settings → Environment Variables에 다음 값을 Production �
 환경변수로 자동 추론하므로 기본 배포에서는 설정하지 않는다.
 
 수집 전용 값(`PLATUM_RSS_URL`, `KSTARTUP_SERVICE_KEY`, `KSTARTUP_API_URL`,
-`OPENALEX_API_KEY`, `OPENALEX_SEARCH_QUERY`)은 별도 워커 실행 환경에만 둔다.
+`OPENALEX_API_KEY`, `OPENALEX_SEARCH_QUERY`, `ARXIV_SEARCH_QUERY`)은 별도 워커
+실행 환경에 둔다.
 OpenAlex 키는 무료 발급 키를 사용하며, 검색식은 지표 범위 검토 후 승인된 문자열을
 등록한다.
+
+Production에는 `CRON_SECRET`을 반드시 등록한다. Vercel Cron은 매일 01:15 UTC에
+`/api/cron/indicators`를 호출하며, 이 경로는 `Authorization: Bearer
+$CRON_SECRET`이 일치할 때만 기업 수와 신규 논문 지표를 갱신한다. OpenAlex 설정이
+없으면 arXiv의 AI 핵심 카테고리 검색식을 사용한다.
 
 ## 3. Google OAuth
 
