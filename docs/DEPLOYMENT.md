@@ -43,8 +43,10 @@ Vercel Project Settings → Environment Variables에 다음 값을 Production �
 `AUTH_URL`과 `AUTH_TRUST_HOST`는 Vercel에서 Auth.js v5가 요청 헤더와 `VERCEL`
 환경변수로 자동 추론하므로 기본 배포에서는 설정하지 않는다.
 
-수집 전용 값(`PLATUM_RSS_URL`, `KSTARTUP_SERVICE_KEY`, `KSTARTUP_API_URL`)은 별도
-워커 실행 환경에만 둔다.
+수집 전용 값(`PLATUM_RSS_URL`, `KSTARTUP_SERVICE_KEY`, `KSTARTUP_API_URL`,
+`OPENALEX_API_KEY`, `OPENALEX_SEARCH_QUERY`)은 별도 워커 실행 환경에만 둔다.
+OpenAlex 키는 무료 발급 키를 사용하며, 검색식은 지표 범위 검토 후 승인된 문자열을
+등록한다.
 
 ## 3. Google OAuth
 
