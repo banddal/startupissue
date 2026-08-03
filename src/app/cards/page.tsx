@@ -1,7 +1,8 @@
-import { and, desc, eq, isNotNull, isNull, ne } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import Link from "next/link";
 
 import { ImportantButton } from "@/components/important-button";
+import { SignInButton } from "@/components/auth-buttons";
 import { cardTimelineLabel } from "@/lib/card-timeline";
 import {
   CARD_TYPE_LABELS,
@@ -10,8 +11,11 @@ import {
   isCardType,
 } from "@/lib/card-types";
 import { db } from "@/server/db";
+import { getCurrentUser } from "@/server/auth/guards";
 import {
   cards,
+  cardUserStates,
+  notes,
   sourceItems,
   sources,
 } from "@/server/db/schema";
@@ -34,6 +38,8 @@ export default async function CardsPage({
   const selectedType = isCardType(requestedType) ? requestedType : undefined;
   const importantOnly = filters.important === "1";
   const noteOnly = filters.note === "1";
+  const user = await getCurrentUser();
+  const userId = user?.id ?? "00000000-0000-0000-0000-000000000000";
   const items = await db
     .select({
       id: cards.id,
@@ -42,20 +48,25 @@ export default async function CardsPage({
       type: cards.type,
       publishedAt: cards.publishedAt,
       collectedAt: cards.collectedAt,
-      important: cards.important,
-      note: cards.note,
+      important: sql<boolean>`coalesce(${cardUserStates.important}, false)`,
+      note: notes.body,
       sourceName: sources.name,
     })
     .from(cards)
     .leftJoin(sourceItems, eq(sourceItems.id, cards.primarySourceItemId))
     .leftJoin(sources, eq(sources.id, sourceItems.sourceId))
+    .leftJoin(
+      cardUserStates,
+      and(eq(cardUserStates.cardId, cards.id), eq(cardUserStates.userId, userId)),
+    )
+    .leftJoin(notes, and(eq(notes.cardId, cards.id), eq(notes.userId, userId)))
     .where(
       and(
         ne(cards.reviewStatus, "hidden"),
         isNull(cards.mergedIntoCardId),
         selectedType ? eq(cards.type, selectedType) : undefined,
-        importantOnly ? eq(cards.important, true) : undefined,
-        noteOnly ? isNotNull(cards.note) : undefined,
+        importantOnly ? eq(cardUserStates.important, true) : undefined,
+        noteOnly ? isNotNull(notes.body) : undefined,
       ),
     )
     .orderBy(desc(cards.publishedAt))
@@ -83,6 +94,7 @@ export default async function CardsPage({
         <Link className="text-sm underline" href="/today">
           오늘로 돌아가기
         </Link>
+        {!user ? <SignInButton /> : null}
       </header>
 
       <nav aria-label="정보 유형" className="mt-8 flex flex-wrap gap-2">
@@ -109,18 +121,22 @@ export default async function CardsPage({
             {CARD_TYPE_LABELS[type]}
           </Link>
         ))}
-        <Link
-          className={`rounded-full px-4 py-2 text-sm ${importantOnly ? "bg-amber-400 text-amber-950" : "bg-white text-neutral-700 ring-1 ring-neutral-200"}`}
-          href={filterHref({ type: selectedType, important: !importantOnly, note: noteOnly })}
-        >
-          ★ 중요만
-        </Link>
-        <Link
-          className={`rounded-full px-4 py-2 text-sm ${noteOnly ? "bg-emerald-500 text-white" : "bg-white text-neutral-700 ring-1 ring-neutral-200"}`}
-          href={filterHref({ type: selectedType, important: importantOnly, note: !noteOnly })}
-        >
-          메모 있음
-        </Link>
+        {user ? (
+          <>
+            <Link
+              className={`rounded-full px-4 py-2 text-sm ${importantOnly ? "bg-amber-400 text-amber-950" : "bg-white text-neutral-700 ring-1 ring-neutral-200"}`}
+              href={filterHref({ type: selectedType, important: !importantOnly, note: noteOnly })}
+            >
+              ★ 중요만
+            </Link>
+            <Link
+              className={`rounded-full px-4 py-2 text-sm ${noteOnly ? "bg-emerald-500 text-white" : "bg-white text-neutral-700 ring-1 ring-neutral-200"}`}
+              href={filterHref({ type: selectedType, important: importantOnly, note: !noteOnly })}
+            >
+              메모 있음
+            </Link>
+          </>
+        ) : null}
       </nav>
 
       {items.length === 0 ? (
@@ -150,7 +166,9 @@ export default async function CardsPage({
                       </span>
                     ) : null}
                   </div>
-                  <ImportantButton cardId={item.id} important={item.important} />
+                  {user ? (
+                    <ImportantButton cardId={item.id} important={item.important} />
+                  ) : null}
                 </div>
                 <Link className="block" href={`/cards/${item.id}`}>
                   <h2 className="mt-3 text-xl font-semibold">{item.title}</h2>

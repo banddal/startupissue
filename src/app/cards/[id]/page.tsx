@@ -1,4 +1,4 @@
-import { and, eq, isNull, ne } from "drizzle-orm";
+import { and, eq, isNull, ne, sql } from "drizzle-orm";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -6,6 +6,8 @@ import { db } from "@/server/db";
 import {
   cards,
   cardSources,
+  cardUserStates,
+  notes,
   sourceItems,
   sources,
 } from "@/server/db/schema";
@@ -35,6 +37,7 @@ export default async function CardDetailPage({
 }) {
   const { id } = await params;
   const user = await getCurrentUser();
+  const userId = user?.id ?? "00000000-0000-0000-0000-000000000000";
 
   const [item] = await db
     .select({
@@ -44,8 +47,8 @@ export default async function CardDetailPage({
       type: cards.type,
       publishedAt: cards.publishedAt,
       collectedAt: cards.collectedAt,
-      important: cards.important,
-      note: cards.note,
+      important: sql<boolean>`coalesce(${cardUserStates.important}, false)`,
+      note: notes.body,
       bodyTruncated: cards.bodyTruncated,
       bodyText: sourceItems.bodyText,
       canonicalUrl: sourceItems.canonicalUrl,
@@ -55,6 +58,11 @@ export default async function CardDetailPage({
     .innerJoin(cardSources, eq(cardSources.cardId, cards.id))
     .innerJoin(sourceItems, eq(sourceItems.id, cardSources.sourceItemId))
     .innerJoin(sources, eq(sources.id, sourceItems.sourceId))
+    .leftJoin(
+      cardUserStates,
+      and(eq(cardUserStates.cardId, cards.id), eq(cardUserStates.userId, userId)),
+    )
+    .leftJoin(notes, and(eq(notes.cardId, cards.id), eq(notes.userId, userId)))
     .where(
       and(
         eq(cards.id, id),
@@ -83,7 +91,9 @@ export default async function CardDetailPage({
             </span>
             <span>{item.sourceName}</span>
           </div>
-          <ImportantButton cardId={item.id} important={item.important} />
+          {user ? (
+            <ImportantButton cardId={item.id} important={item.important} />
+          ) : null}
         </div>
         <h1 className="mt-2 text-3xl font-semibold leading-tight">{item.title}</h1>
         <dl className="mt-6 grid gap-2 text-sm text-neutral-600 sm:grid-cols-2">
@@ -124,7 +134,13 @@ export default async function CardDetailPage({
             </button>
           </form>
         ) : null}
-        <NoteEditor cardId={item.id} body={item.note ?? ""} />
+        {user ? (
+          <NoteEditor cardId={item.id} body={item.note ?? ""} />
+        ) : (
+          <div className="mt-6 rounded-2xl border border-neutral-200 bg-white/70 p-5 text-sm text-neutral-700">
+            내 메모와 중요 체크를 사용하려면 Google로 로그인하세요.
+          </div>
+        )}
         <p className="mt-8 whitespace-pre-wrap text-base leading-8 text-neutral-800">
           {item.bodyText || item.summary}
         </p>

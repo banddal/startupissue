@@ -1,7 +1,7 @@
-import { and, count, desc, eq, gte, isNotNull, isNull, ne } from "drizzle-orm";
+import { and, count, desc, eq, gte, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import Link from "next/link";
 
-import { SignOutButton } from "@/components/auth-buttons";
+import { SignInButton, SignOutButton } from "@/components/auth-buttons";
 import { ImportantButton } from "@/components/important-button";
 import { cardTimelineLabel, startOfTodayInSeoul } from "@/lib/card-timeline";
 import {
@@ -15,7 +15,9 @@ import { getCurrentUser } from "@/server/auth/guards";
 import { db } from "@/server/db";
 import {
   cards,
+  cardUserStates,
   ingestionRuns,
+  notes,
   sourceItems,
   sources,
 } from "@/server/db/schema";
@@ -37,6 +39,7 @@ export default async function TodayPage({
   const requestedType = filters.type;
   const selectedType = isCardType(requestedType) ? requestedType : undefined;
   const user = await getCurrentUser();
+  const userId = user?.id ?? "00000000-0000-0000-0000-000000000000";
   const importantOnly = filters.important === "1";
   const noteOnly = filters.note === "1";
   const todayStartedAt = startOfTodayInSeoul();
@@ -47,8 +50,8 @@ export default async function TodayPage({
   const filteredCard = and(
     visibleCard,
     selectedType ? eq(cards.type, selectedType) : undefined,
-    importantOnly ? eq(cards.important, true) : undefined,
-    noteOnly ? isNotNull(cards.note) : undefined,
+    importantOnly ? eq(cardUserStates.important, true) : undefined,
+    noteOnly ? isNotNull(notes.body) : undefined,
   );
 
   const [latestCards, todayCountResult, lastRun, typeCountRows, economicIndicators] = await Promise.all([
@@ -60,20 +63,30 @@ export default async function TodayPage({
         type: cards.type,
         publishedAt: cards.publishedAt,
         collectedAt: cards.collectedAt,
-        important: cards.important,
-        note: cards.note,
+        important: sql<boolean>`coalesce(${cardUserStates.important}, false)`,
+        note: notes.body,
         sourceName: sources.name,
         sourceUrl: sourceItems.canonicalUrl,
       })
       .from(cards)
       .leftJoin(sourceItems, eq(sourceItems.id, cards.primarySourceItemId))
       .leftJoin(sources, eq(sources.id, sourceItems.sourceId))
+      .leftJoin(
+        cardUserStates,
+        and(eq(cardUserStates.cardId, cards.id), eq(cardUserStates.userId, userId)),
+      )
+      .leftJoin(notes, and(eq(notes.cardId, cards.id), eq(notes.userId, userId)))
       .where(filteredCard)
       .orderBy(desc(cards.publishedAt), desc(cards.collectedAt))
       .limit(20),
     db
       .select({ value: count() })
       .from(cards)
+      .leftJoin(
+        cardUserStates,
+        and(eq(cardUserStates.cardId, cards.id), eq(cardUserStates.userId, userId)),
+      )
+      .leftJoin(notes, and(eq(notes.cardId, cards.id), eq(notes.userId, userId)))
       .where(and(filteredCard, gte(cards.collectedAt, todayStartedAt))),
     db
       .select({
@@ -136,7 +149,7 @@ export default async function TodayPage({
           <Link className="text-sm underline" href="/cards">
             전체 자료
           </Link>
-          {user ? <SignOutButton /> : null}
+          {user ? <SignOutButton /> : <SignInButton />}
         </nav>
       </header>
 
@@ -283,26 +296,30 @@ export default async function TodayPage({
               {CARD_TYPE_LABELS[type]}
             </Link>
           ))}
-          <Link
-            className={`rounded-full px-4 py-2 text-sm ${
-              importantOnly
-                ? "bg-amber-400 text-amber-950"
-                : "bg-white text-neutral-700 ring-1 ring-neutral-200"
-            }`}
-            href={filterHref({ type: selectedType, important: !importantOnly, note: noteOnly })}
-          >
-            ★ 중요만
-          </Link>
-          <Link
-            className={`rounded-full px-4 py-2 text-sm ${
-              noteOnly
-                ? "bg-emerald-500 text-white"
-                : "bg-white text-neutral-700 ring-1 ring-neutral-200"
-            }`}
-            href={filterHref({ type: selectedType, important: importantOnly, note: !noteOnly })}
-          >
-            메모 있음
-          </Link>
+          {user ? (
+            <>
+              <Link
+                className={`rounded-full px-4 py-2 text-sm ${
+                  importantOnly
+                    ? "bg-amber-400 text-amber-950"
+                    : "bg-white text-neutral-700 ring-1 ring-neutral-200"
+                }`}
+                href={filterHref({ type: selectedType, important: !importantOnly, note: noteOnly })}
+              >
+                ★ 중요만
+              </Link>
+              <Link
+                className={`rounded-full px-4 py-2 text-sm ${
+                  noteOnly
+                    ? "bg-emerald-500 text-white"
+                    : "bg-white text-neutral-700 ring-1 ring-neutral-200"
+                }`}
+                href={filterHref({ type: selectedType, important: importantOnly, note: !noteOnly })}
+              >
+                메모 있음
+              </Link>
+            </>
+          ) : null}
         </nav>
 
         {displayedCards.length === 0 ? (
@@ -332,7 +349,9 @@ export default async function TodayPage({
                         </span>
                       ) : null}
                     </div>
-                    <ImportantButton cardId={card.id} important={card.important} />
+                    {user ? (
+                      <ImportantButton cardId={card.id} important={card.important} />
+                    ) : null}
                   </div>
                   <Link className="block" href={`/cards/${card.id}`}>
                     <h3 className="mt-3 text-xl font-semibold">{card.title}</h3>

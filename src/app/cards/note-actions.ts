@@ -1,11 +1,12 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { db } from "@/server/db";
-import { cards } from "@/server/db/schema";
+import { requireUser } from "@/server/auth/guards";
+import { cards, notes } from "@/server/db/schema";
 
 const inputSchema = z.object({
   cardId: z.string().uuid(),
@@ -18,11 +19,27 @@ export async function saveCardNote(cardIdValue: string, formData: FormData) {
     body: formData.get("body"),
   });
   const body = input.body.trim();
+  const user = await requireUser();
+  const [card] = await db
+    .select({ id: cards.id })
+    .from(cards)
+    .where(eq(cards.id, input.cardId))
+    .limit(1);
+  if (!card) throw new Error("Card not found.");
 
-  await db
-    .update(cards)
-    .set({ note: body || null, updatedAt: new Date() })
-    .where(eq(cards.id, input.cardId));
+  if (body) {
+    await db
+      .insert(notes)
+      .values({ userId: user.id, cardId: input.cardId, body })
+      .onConflictDoUpdate({
+        target: [notes.userId, notes.cardId],
+        set: { body, updatedAt: new Date() },
+      });
+  } else {
+    await db
+      .delete(notes)
+      .where(and(eq(notes.userId, user.id), eq(notes.cardId, input.cardId)));
+  }
 
   revalidatePath("/today");
   revalidatePath("/cards");
