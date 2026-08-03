@@ -8,6 +8,8 @@ import {
 } from "./adapters/government-board";
 import { createRssAdapter } from "./adapters/rss";
 import { createStartupAllianceAdapter } from "./adapters/startup-alliance";
+import { createArxivAdapter } from "./adapters/arxiv";
+import { createSpriResearchAdapter } from "./adapters/spri";
 import {
   includeInvestmentChange,
   includeStartupPolicy,
@@ -29,6 +31,8 @@ export const sourceKeys = [
   "motir-press",
   "startup-recipe",
   "startup-alliance",
+  "arxiv",
+  "spri-research",
 ] as const;
 export type SourceKey = (typeof sourceKeys)[number];
 
@@ -96,6 +100,8 @@ export function getSourceAdapters(): Partial<Record<SourceKey, SourceAdapter>> {
       include: includeStartupRecipe,
     }),
     "startup-alliance": createStartupAllianceAdapter(),
+    arxiv: createArxivAdapter(),
+    "spri-research": createSpriResearchAdapter(),
   };
 
   if (process.env.KSTARTUP_SERVICE_KEY) {

@@ -33,11 +33,13 @@ function safeError(error: unknown): { type: string; message: string } {
 }
 
 function sourceDefinition(adapter: SourceAdapter) {
+  const apiSources = new Set(["kstartup", "arxiv"]);
+  const tierOneSources = new Set(["kstartup", "etnews-ai", "arxiv", "spri-research"]);
   return {
     key: adapter.key,
     name: adapter.name,
-    kind: (adapter.key === "kstartup" ? "api" : "rss") as "rss" | "api",
-    tier: adapter.key === "kstartup" || adapter.key === "etnews-ai" ? 1 : 2,
+    kind: (apiSources.has(adapter.key) ? "api" : "rss") as "rss" | "api",
+    tier: tierOneSources.has(adapter.key) ? 1 : 2,
     config: {},
     defaultCardType: adapter.defaultCardType,
     enabled: true,

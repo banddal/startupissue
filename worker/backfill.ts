@@ -10,6 +10,8 @@ const BACKFILL_SOURCES: Array<{ key: SourceKey; maxPages: number }> = [
   { key: "motir-press", maxPages: 8 },
   { key: "startup-recipe", maxPages: 8 },
   { key: "startup-alliance", maxPages: 8 },
+  { key: "arxiv", maxPages: 31 },
+  { key: "spri-research", maxPages: 8 },
 ];
 
 function numericArgument(name: string, fallback: number) {
@@ -47,14 +49,22 @@ export async function runBackfill() {
     let pages = 0;
     for (let page = 1; page <= source.maxPages; page += 1) {
       const rawItems = await adapter.fetch(String(page));
-      if (rawItems.length === 0) break;
+      if (rawItems.length === 0) {
+        // arXiv has no submissions on some days (especially weekends), so an
+        // empty daily window must not stop the month-long walk backwards.
+        if (source.key === "arxiv") continue;
+        break;
+      }
       const datedItems = rawItems
         .map((item) => ({ item, date: item.publishedAt ? new Date(item.publishedAt) : null }))
         .filter(
           (entry): entry is { item: (typeof rawItems)[number]; date: Date } =>
             Boolean(entry.date && !Number.isNaN(entry.date.getTime())),
         );
-      if (datedItems.length === 0) break;
+      if (datedItems.length === 0) {
+        if (source.key === "arxiv") continue;
+        break;
+      }
 
       const recentItems = datedItems
         .filter(({ date }) => date >= boundary)

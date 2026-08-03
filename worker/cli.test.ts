@@ -22,6 +22,8 @@ describe("worker CLI", () => {
         "motir-press",
         "startup-recipe",
         "startup-alliance",
+        "arxiv",
+        "spri-research",
       ],
       dryRun: false,
     });
