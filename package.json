@@ -16,6 +16,7 @@
     "worker": "tsx worker/cli.ts",
     "worker:refresh-indicators": "tsx scripts/refresh-ecosystem-indicators.ts",
     "worker:reclassify": "tsx scripts/reclassify-cards.ts",
+    "worker:filter-timeline": "tsx scripts/apply-main-timeline-filter.ts",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
   },
   "dependencies": {

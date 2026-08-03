@@ -10,6 +10,7 @@ import {
 } from "../src/server/db/schema";
 import { makeSummary, normalizeItem } from "./core/normalize";
 import { classifyCardType } from "./core/card-classification";
+import { shouldHideFromMainTimeline } from "./core/card-visibility";
 import { createWorkerDatabase } from "./db";
 import type { NormalizedSourceItem, RawSourceItem, SourceAdapter } from "./types";
 
@@ -35,8 +36,8 @@ function sourceDefinition(adapter: SourceAdapter) {
   return {
     key: adapter.key,
     name: adapter.name,
-    kind: (adapter.key === "platum" ? "rss" : "api") as "rss" | "api",
-    tier: adapter.key === "kstartup" ? 1 : 2,
+    kind: (adapter.key === "kstartup" ? "api" : "rss") as "rss" | "api",
+    tier: adapter.key === "kstartup" || adapter.key === "etnews-ai" ? 1 : 2,
     config: {},
     defaultCardType: adapter.defaultCardType,
     enabled: true,
@@ -102,6 +103,9 @@ async function persistNormalizedItem(
     defaultCardType,
     title: item.title,
   });
+  const reviewStatus = shouldHideFromMainTimeline(item.title)
+    ? "hidden"
+    : "pending_review";
   return db.transaction(async (tx) => {
     const [existing] = await tx
       .select({
@@ -130,7 +134,7 @@ async function persistNormalizedItem(
             type: cardType,
             primarySourceItemId: existing.id,
             publishedAt: item.publishedAt,
-            reviewStatus: "pending_review",
+            reviewStatus,
             dedupeStatus: "unique",
             bodyTruncated: item.bodyTruncated,
           })
@@ -175,7 +179,7 @@ async function persistNormalizedItem(
         type: cardType,
         primarySourceItemId: createdItem.id,
         publishedAt: item.publishedAt,
-        reviewStatus: "pending_review",
+        reviewStatus,
         dedupeStatus: "unique",
         bodyTruncated: item.bodyTruncated,
       })

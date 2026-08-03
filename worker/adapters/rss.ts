@@ -91,13 +91,15 @@ export function createRssAdapter(options: {
   name: string;
   endpoint: string;
   defaultCardType: CardType;
+  include?: (item: RawSourceItem) => boolean;
 }): SourceAdapter {
   return {
     key: options.key,
     name: options.name,
     defaultCardType: options.defaultCardType,
     async fetch() {
-      return parseRss(await fetchText(options.endpoint));
+      const items = parseRss(await fetchText(options.endpoint));
+      return options.include ? items.filter(options.include) : items;
     },
   };
 }

@@ -12,7 +12,7 @@ describe("worker CLI", () => {
 
   it("parses all sources", () => {
     expect(parseArgs(["ingest", "--all"])).toEqual({
-      sources: ["platum", "kstartup"],
+      sources: ["platum", "etnews-ai", "wowtale", "kstartup"],
       dryRun: false,
     });
   });
