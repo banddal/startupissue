@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import {
   cards,
@@ -248,6 +248,18 @@ async function recordNormalizationFailure(options: {
         rawPayload: options.raw.payload,
         status: "parse_failed",
       })
+      .onConflictDoUpdate({
+        target: [sourceItems.sourceId, sourceItems.externalId],
+        targetWhere: sql`${sourceItems.externalId} is not null`,
+        set: {
+          canonicalUrl: options.raw.url || null,
+          title: options.raw.title || null,
+          rawPayload: options.raw.payload,
+          status: "parse_failed",
+          lastSeenAt: new Date(),
+          updatedAt: new Date(),
+        },
+      })
       .returning({ id: sourceItems.id });
   }
 
@@ -265,7 +277,7 @@ async function recordNormalizationFailure(options: {
 async function recordProcessingFailure(options: {
   db: ReturnType<typeof createWorkerDatabase>["db"];
   runId: string;
-  stage: "dedupe" | "card";
+  stage: "normalize" | "dedupe" | "card";
   attemptNo: number;
   error: unknown;
 }) {
@@ -336,14 +348,28 @@ export async function runPersistentIngestion(
           normalized = normalizeItem(raw);
         } catch (error) {
           counts.failed += 1;
-          await recordNormalizationFailure({
-            db: worker.db,
-            sourceId: source.id,
-            runId: run.id,
-            raw,
-            attemptNo: index + 1,
-            error,
-          });
+          try {
+            await recordNormalizationFailure({
+              db: worker.db,
+              sourceId: source.id,
+              runId: run.id,
+              raw,
+              attemptNo: index + 1,
+              error,
+            });
+          } catch (recordError) {
+            try {
+              await recordProcessingFailure({
+                db: worker.db,
+                runId: run.id,
+                stage: "normalize",
+                attemptNo: index + 1,
+                error: recordError,
+              });
+            } catch (attemptError) {
+              console.error("Failed to record normalization error", attemptError);
+            }
+          }
           continue;
         }
 
