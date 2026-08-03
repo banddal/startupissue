@@ -15,6 +15,7 @@ import { CARD_TYPE_LABELS, CARD_TYPES } from "@/lib/card-types";
 import { cardTimelineLabel } from "@/lib/card-timeline";
 import { ImportantButton } from "@/components/important-button";
 import { NoteEditor } from "@/components/note-editor";
+import { SignInButton } from "@/components/auth-buttons";
 import { getCurrentUser } from "@/server/auth/guards";
 import { updateCardType } from "./actions";
 
@@ -146,6 +147,16 @@ export default async function CardDetailPage({
         ) : null}
         {user?.status === "active" ? (
           <NoteEditor cardId={item.id} body={note?.body ?? ""} />
+        ) : !user ? (
+          <section className="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-5">
+            <h2 className="font-semibold text-blue-950">중요 체크·개인 메모</h2>
+            <p className="mt-2 text-sm text-blue-900">
+              로그인하면 이 카드에 중요 체크와 개인 메모를 남길 수 있습니다.
+            </p>
+            <div className="mt-4">
+              <SignInButton />
+            </div>
+          </section>
         ) : null}
         <p className="mt-8 whitespace-pre-wrap text-base leading-8 text-neutral-800">
           {item.bodyText || item.summary}

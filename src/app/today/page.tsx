@@ -1,7 +1,7 @@
 import { and, count, desc, eq, gte, inArray, isNull, ne } from "drizzle-orm";
 import Link from "next/link";
 
-import { SignOutButton } from "@/components/auth-buttons";
+import { SignInButton, SignOutButton } from "@/components/auth-buttons";
 import { ImportantButton } from "@/components/important-button";
 import { cardTimelineLabel, startOfTodayInSeoul } from "@/lib/card-timeline";
 import {
@@ -165,9 +165,16 @@ export default async function TodayPage({
           <Link className="text-sm underline" href="/cards">
             전체 자료
           </Link>
-          {user ? <SignOutButton /> : null}
+          {user ? <SignOutButton /> : <SignInButton />}
         </nav>
       </header>
+
+      {!user ? (
+        <section className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-950">
+          <p>중요 체크와 개인 메모는 로그인 후 카드 상세에서 사용할 수 있습니다.</p>
+          <SignInButton />
+        </section>
+      ) : null}
 
       <section className="mt-10 rounded-2xl border border-neutral-200 bg-white p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
