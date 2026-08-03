@@ -64,6 +64,13 @@
       "when": 1785751200000,
       "tag": "0008_card_user_states",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1785754800000,
+      "tag": "0009_card_notes",
+      "breakpoints": true
     }
   ]
 }

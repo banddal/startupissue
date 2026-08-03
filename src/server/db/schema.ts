@@ -243,6 +243,29 @@ export const cardUserStates = pgTable(
   ],
 );
 
+export const notes = pgTable(
+  "notes",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    cardId: uuid("card_id")
+      .notNull()
+      .references(() => cards.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.cardId] }),
+    index("notes_user_updated_at_idx").on(table.userId, table.updatedAt),
+  ],
+);
+
 export const informationValueRuleVersions = pgTable(
   "information_value_rule_versions",
   {

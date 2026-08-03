@@ -15,6 +15,7 @@ import {
   cards,
   cardUserStates,
   ingestionRuns,
+  notes,
   sourceItems,
   sources,
 } from "@/server/db/schema";
@@ -30,13 +31,14 @@ const dateTimeFormatter = new Intl.DateTimeFormat("ko-KR", {
 export default async function TodayPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; important?: string }>;
+  searchParams: Promise<{ type?: string; important?: string; note?: string }>;
 }) {
   const filters = await searchParams;
   const requestedType = filters.type;
   const selectedType = isCardType(requestedType) ? requestedType : undefined;
   const user = await getCurrentUser();
   const importantOnly = filters.important === "1" && user?.status === "active";
+  const noteOnly = filters.note === "1" && user?.status === "active";
   const todayStartedAt = startOfTodayInSeoul();
   const visibleCard = and(
     ne(cards.reviewStatus, "hidden"),
@@ -59,9 +61,18 @@ export default async function TodayPage({
             ),
         )
       : undefined,
+    noteOnly
+      ? inArray(
+          cards.id,
+          db
+            .select({ cardId: notes.cardId })
+            .from(notes)
+            .where(eq(notes.userId, user.id)),
+        )
+      : undefined,
   );
 
-  const [latestCards, todayCountResult, lastRun, importantRows] = await Promise.all([
+  const [latestCards, todayCountResult, lastRun, importantRows, noteRows] = await Promise.all([
     db
       .select({
         id: cards.id,
@@ -105,6 +116,12 @@ export default async function TodayPage({
             ),
           )
       : Promise.resolve([]),
+    user?.status === "active"
+      ? db
+          .select({ cardId: notes.cardId })
+          .from(notes)
+          .where(eq(notes.userId, user.id))
+      : Promise.resolve([]),
   ]);
 
   const todayCards = latestCards.filter(
@@ -113,6 +130,19 @@ export default async function TodayPage({
   const displayedCards = todayCards.length > 0 ? todayCards : latestCards;
   const isShowingArchive = todayCards.length === 0 && latestCards.length > 0;
   const importantCardIds = new Set(importantRows.map((row) => row.cardId));
+  const noteCardIds = new Set(noteRows.map((row) => row.cardId));
+  const filterHref = (input: {
+    type?: typeof selectedType;
+    important?: boolean;
+    note?: boolean;
+  }) => {
+    const query = new URLSearchParams();
+    if (input.type) query.set("type", input.type);
+    if (input.important) query.set("important", "1");
+    if (input.note) query.set("note", "1");
+    const value = query.toString();
+    return value ? `/today?${value}` : "/today";
+  };
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
@@ -213,7 +243,7 @@ export default async function TodayPage({
                 ? "bg-white text-neutral-700 ring-1 ring-neutral-200"
                 : "bg-neutral-900 text-white"
             }`}
-            href="/today"
+            href={filterHref({ important: importantOnly, note: noteOnly })}
           >
             전체
           </Link>
@@ -224,7 +254,7 @@ export default async function TodayPage({
                   ? "bg-neutral-900 text-white"
                   : "bg-white text-neutral-700 ring-1 ring-neutral-200"
               }`}
-              href={`/today?type=${type}${importantOnly ? "&important=1" : ""}`}
+              href={filterHref({ type, important: importantOnly, note: noteOnly })}
               key={type}
             >
               {CARD_TYPE_LABELS[type]}
@@ -237,11 +267,29 @@ export default async function TodayPage({
                   ? "bg-amber-400 text-amber-950"
                   : "bg-white text-neutral-700 ring-1 ring-neutral-200"
               }`}
-              href={importantOnly
-                ? (selectedType ? `/today?type=${selectedType}` : "/today")
-                : `/today?${selectedType ? `type=${selectedType}&` : ""}important=1`}
+              href={filterHref({
+                type: selectedType,
+                important: !importantOnly,
+                note: noteOnly,
+              })}
             >
               ★ 중요만
+            </Link>
+          ) : null}
+          {user?.status === "active" ? (
+            <Link
+              className={`rounded-full px-4 py-2 text-sm ${
+                noteOnly
+                  ? "bg-emerald-500 text-white"
+                  : "bg-white text-neutral-700 ring-1 ring-neutral-200"
+              }`}
+              href={filterHref({
+                type: selectedType,
+                important: importantOnly,
+                note: !noteOnly,
+              })}
+            >
+              메모 있음
             </Link>
           ) : null}
         </nav>
@@ -267,6 +315,11 @@ export default async function TodayPage({
                         {CARD_TYPE_LABELS[card.type]}
                       </span>
                       {card.sourceName ? <span>{card.sourceName}</span> : null}
+                      {noteCardIds.has(card.id) ? (
+                        <span className="rounded-full bg-emerald-100 px-2 py-1 font-medium text-emerald-800">
+                          메모 있음
+                        </span>
+                      ) : null}
                     </div>
                     {user?.status === "active" ? (
                       <ImportantButton

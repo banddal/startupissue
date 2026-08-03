@@ -7,12 +7,14 @@ import {
   cards,
   cardSources,
   cardUserStates,
+  notes,
   sourceItems,
   sources,
 } from "@/server/db/schema";
 import { CARD_TYPE_LABELS, CARD_TYPES } from "@/lib/card-types";
 import { cardTimelineLabel } from "@/lib/card-timeline";
 import { ImportantButton } from "@/components/important-button";
+import { NoteEditor } from "@/components/note-editor";
 import { getCurrentUser } from "@/server/auth/guards";
 import { updateCardType } from "./actions";
 
@@ -70,6 +72,13 @@ export default async function CardDetailPage({
             eq(cardUserStates.cardId, item.id),
           ),
         )
+        .limit(1)
+    : [];
+  const [note] = user?.status === "active"
+    ? await db
+        .select({ body: notes.body })
+        .from(notes)
+        .where(and(eq(notes.userId, user.id), eq(notes.cardId, item.id)))
         .limit(1)
     : [];
 
@@ -134,6 +143,9 @@ export default async function CardDetailPage({
               유형 저장
             </button>
           </form>
+        ) : null}
+        {user?.status === "active" ? (
+          <NoteEditor cardId={item.id} body={note?.body ?? ""} />
         ) : null}
         <p className="mt-8 whitespace-pre-wrap text-base leading-8 text-neutral-800">
           {item.bodyText || item.summary}

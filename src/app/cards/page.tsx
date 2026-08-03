@@ -10,7 +10,13 @@ import {
 } from "@/lib/card-types";
 import { db } from "@/server/db";
 import { getCurrentUser } from "@/server/auth/guards";
-import { cards, cardUserStates, sourceItems, sources } from "@/server/db/schema";
+import {
+  cards,
+  cardUserStates,
+  notes,
+  sourceItems,
+  sources,
+} from "@/server/db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -23,13 +29,14 @@ const dateTimeFormatter = new Intl.DateTimeFormat("ko-KR", {
 export default async function CardsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; important?: string }>;
+  searchParams: Promise<{ type?: string; important?: string; note?: string }>;
 }) {
   const filters = await searchParams;
   const requestedType = filters.type;
   const selectedType = isCardType(requestedType) ? requestedType : undefined;
   const user = await getCurrentUser();
   const importantOnly = filters.important === "1" && user?.status === "active";
+  const noteOnly = filters.note === "1" && user?.status === "active";
   const items = await db
     .select({
       id: cards.id,
@@ -62,6 +69,15 @@ export default async function CardsPage({
                 ),
             )
           : undefined,
+        noteOnly
+          ? inArray(
+              cards.id,
+              db
+                .select({ cardId: notes.cardId })
+                .from(notes)
+                .where(eq(notes.userId, user.id)),
+            )
+          : undefined,
       ),
     )
     .orderBy(desc(cards.publishedAt))
@@ -78,6 +94,25 @@ export default async function CardsPage({
         )
     : [];
   const importantCardIds = new Set(importantRows.map((row) => row.cardId));
+  const noteRows = user?.status === "active"
+    ? await db
+        .select({ cardId: notes.cardId })
+        .from(notes)
+        .where(eq(notes.userId, user.id))
+    : [];
+  const noteCardIds = new Set(noteRows.map((row) => row.cardId));
+  const filterHref = (input: {
+    type?: typeof selectedType;
+    important?: boolean;
+    note?: boolean;
+  }) => {
+    const query = new URLSearchParams();
+    if (input.type) query.set("type", input.type);
+    if (input.important) query.set("important", "1");
+    if (input.note) query.set("note", "1");
+    const value = query.toString();
+    return value ? `/cards?${value}` : "/cards";
+  };
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
@@ -98,7 +133,7 @@ export default async function CardsPage({
               ? "bg-white text-neutral-700 ring-1 ring-neutral-200"
               : "bg-neutral-900 text-white"
           }`}
-          href="/cards"
+          href={filterHref({ important: importantOnly, note: noteOnly })}
         >
           전체
         </Link>
@@ -109,7 +144,7 @@ export default async function CardsPage({
                 ? "bg-neutral-900 text-white"
                 : "bg-white text-neutral-700 ring-1 ring-neutral-200"
             }`}
-            href={`/cards?type=${type}${importantOnly ? "&important=1" : ""}`}
+            href={filterHref({ type, important: importantOnly, note: noteOnly })}
             key={type}
           >
             {CARD_TYPE_LABELS[type]}
@@ -122,11 +157,29 @@ export default async function CardsPage({
                 ? "bg-amber-400 text-amber-950"
                 : "bg-white text-neutral-700 ring-1 ring-neutral-200"
             }`}
-            href={importantOnly
-              ? (selectedType ? `/cards?type=${selectedType}` : "/cards")
-              : `/cards?${selectedType ? `type=${selectedType}&` : ""}important=1`}
+            href={filterHref({
+              type: selectedType,
+              important: !importantOnly,
+              note: noteOnly,
+            })}
           >
             ★ 중요만
+          </Link>
+        ) : null}
+        {user?.status === "active" ? (
+          <Link
+            className={`rounded-full px-4 py-2 text-sm ${
+              noteOnly
+                ? "bg-emerald-500 text-white"
+                : "bg-white text-neutral-700 ring-1 ring-neutral-200"
+            }`}
+            href={filterHref({
+              type: selectedType,
+              important: importantOnly,
+              note: !noteOnly,
+            })}
+          >
+            메모 있음
           </Link>
         ) : null}
       </nav>
@@ -152,6 +205,11 @@ export default async function CardsPage({
                       {CARD_TYPE_LABELS[item.type]}
                     </span>
                     {item.sourceName ? <span>{item.sourceName}</span> : null}
+                    {noteCardIds.has(item.id) ? (
+                      <span className="rounded-full bg-emerald-100 px-2 py-1 font-medium text-emerald-800">
+                        메모 있음
+                      </span>
+                    ) : null}
                   </div>
                   {user?.status === "active" ? (
                     <ImportantButton
