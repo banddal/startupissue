@@ -25,6 +25,10 @@ describe("destinationFor", () => {
     expect(destinationFor(null, "/api/health")).toBeNull();
   });
 
+  it("lets cron routes perform their own bearer-token authorization", () => {
+    expect(destinationFor(null, "/api/cron/cards")).toBeNull();
+  });
+
   it("keeps pending users on the pending page", () => {
     expect(
       destinationFor({ role: "member", status: "pending" }, "/pending"),
