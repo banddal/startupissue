@@ -5,6 +5,15 @@ import type { CardType } from "../../src/lib/card-types";
 
 type XmlRecord = Record<string, unknown>;
 
+type WordpressPost = {
+  id?: string | number;
+  date?: string;
+  link?: string;
+  title?: { rendered?: string };
+  excerpt?: { rendered?: string };
+  content?: { rendered?: string };
+};
+
 const parser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: "@_",
@@ -26,6 +35,34 @@ function text(value: unknown): string | undefined {
   const item = record(value);
   const nested = item.__cdata ?? item.__text ?? item["@_href"];
   return nested === undefined ? undefined : String(nested);
+}
+
+function decodeHtml(value: string | undefined) {
+  return value
+    ?.replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/&#8216;|&#8217;|&lsquo;|&rsquo;/gi, "'")
+    .replace(/&quot;|&#34;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&amp;/gi, "&")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function parseWordpressPosts(value: unknown, origin = "https://example.com"): RawSourceItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((raw) => {
+    const post = raw as WordpressPost;
+    return {
+      externalId:
+        post.id === undefined ? post.link : `${origin.replace(/\/$/, "")}/?p=${post.id}`,
+      url: post.link,
+      title: decodeHtml(post.title?.rendered),
+      body: decodeHtml(post.excerpt?.rendered ?? post.content?.rendered),
+      publishedAt: post.date ? `${post.date}+09:00` : undefined,
+      payload: raw,
+    };
+  });
 }
 
 function parseRssItem(value: unknown): RawSourceItem {
@@ -110,6 +147,20 @@ async function fetchText(
   throw lastError instanceof Error ? lastError : new Error("RSS request failed.");
 }
 
+async function fetchWordpressPage(endpoint: string, page: number) {
+  const url = new URL(endpoint);
+  url.searchParams.set("page", String(page));
+  url.searchParams.set("per_page", "100");
+  url.searchParams.set("_fields", "id,date,link,title,excerpt,content");
+  const response = await fetch(url, {
+    headers: { "user-agent": "StartupIssues/0.2 (+internal research)" },
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (response.status === 400) return [];
+  if (!response.ok) throw new Error(`WordPress request failed with HTTP ${response.status}.`);
+  return parseWordpressPosts(await response.json(), url.origin);
+}
+
 export function createRssAdapter(options: {
   key: string;
   name: string;
@@ -117,13 +168,24 @@ export function createRssAdapter(options: {
   defaultCardType: CardType;
   include?: (item: RawSourceItem) => boolean;
   method?: "GET" | "POST";
+  pageEndpoint?: (page: number) => string;
+  wordpressApiEndpoint?: string;
 }): SourceAdapter {
   return {
     key: options.key,
     name: options.name,
     defaultCardType: options.defaultCardType,
-    async fetch() {
-      const items = parseRss(await fetchText(options.endpoint, options.method));
+    supportsBackfill: Boolean(options.pageEndpoint || options.wordpressApiEndpoint),
+    async fetch(cursor) {
+      const page = cursor ? Number.parseInt(cursor, 10) : undefined;
+      const items = page && options.wordpressApiEndpoint
+        ? await fetchWordpressPage(options.wordpressApiEndpoint, page)
+        : parseRss(
+            await fetchText(
+              page && options.pageEndpoint ? options.pageEndpoint(page) : options.endpoint,
+              options.method,
+            ),
+          );
       return options.include ? items.filter(options.include) : items;
     },
   };

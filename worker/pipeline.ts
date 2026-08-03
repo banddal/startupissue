@@ -295,6 +295,7 @@ async function recordProcessingFailure(options: {
 export async function runPersistentIngestion(
   adapter: SourceAdapter,
   cursor?: string,
+  prefetchedItems?: RawSourceItem[],
 ): Promise<RunCounts> {
   const worker = createWorkerDatabase();
   const counts: RunCounts = {
@@ -339,7 +340,7 @@ export async function runPersistentIngestion(
     }
 
     try {
-      const rawItems = await adapter.fetch(cursor);
+      const rawItems = prefetchedItems ?? (await adapter.fetch(cursor));
       counts.fetched = rawItems.length;
 
       for (const [index, raw] of rawItems.entries()) {

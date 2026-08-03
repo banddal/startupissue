@@ -28,6 +28,7 @@ export type SourceAdapter = {
   key: string;
   name: string;
   defaultCardType: CardType;
+  supportsBackfill?: boolean;
   fetch(cursor?: string): Promise<RawSourceItem[]>;
 };
 import type { CardType } from "../src/lib/card-types";

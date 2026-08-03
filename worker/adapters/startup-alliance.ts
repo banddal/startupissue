@@ -85,8 +85,12 @@ export function createStartupAllianceAdapter(options?: {
     key: "startup-alliance",
     name: "스타트업얼라이언스 자료",
     defaultCardType: "technology",
-    async fetch() {
-      const list = parseStartupAllianceList(await fetchHtml(endpoint), limit);
+    supportsBackfill: true,
+    async fetch(cursor) {
+      const page = cursor ? Number.parseInt(cursor, 10) : 1;
+      const pageUrl = new URL(endpoint);
+      if (page > 1) pageUrl.searchParams.set("page", String(page));
+      const list = parseStartupAllianceList(await fetchHtml(pageUrl.toString()), limit);
       const items: RawSourceItem[] = [];
       for (let index = 0; index < list.length; index += 5) {
         const batch = list.slice(index, index + 5);

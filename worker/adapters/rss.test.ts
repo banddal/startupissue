@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseRss } from "./rss";
+import { parseRss, parseWordpressPosts } from "./rss";
 
 describe("RSS adapter", () => {
   it("parses RSS items and preserves the raw payload", () => {
@@ -41,5 +41,24 @@ describe("RSS adapter", () => {
       "https://example.com/2",
     ]);
     expect(items[0]?.publishedAt).toBe("2026-07-30T07:44:59+09:00");
+  });
+
+  it("parses WordPress archive posts", () => {
+    expect(
+      parseWordpressPosts([
+        {
+          id: 7,
+          date: "2026-07-10T09:30:00",
+          link: "https://example.com/7",
+          title: { rendered: "스타트업 &#8217;소식&#8217;" },
+          excerpt: { rendered: "<p>요약 본문</p>" },
+        },
+      ], "https://example.com")[0],
+    ).toMatchObject({
+      externalId: "https://example.com/?p=7",
+      title: "스타트업 '소식'",
+      body: "요약 본문",
+      publishedAt: "2026-07-10T09:30:00+09:00",
+    });
   });
 });

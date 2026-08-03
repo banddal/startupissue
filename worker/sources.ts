@@ -1,6 +1,11 @@
 import { config } from "dotenv";
 
 import { createKStartupAdapter } from "./adapters/kstartup";
+import {
+  createGovernmentBoardAdapter,
+  parseMotirBoard,
+  parseMssBoard,
+} from "./adapters/government-board";
 import { createRssAdapter } from "./adapters/rss";
 import { createStartupAllianceAdapter } from "./adapters/startup-alliance";
 import {
@@ -33,6 +38,7 @@ export function getSourceAdapters(): Partial<Record<SourceKey, SourceAdapter>> {
       key: "platum",
       name: "플래텀 RSS",
       endpoint: process.env.PLATUM_RSS_URL || "https://platum.kr/feed",
+      wordpressApiEndpoint: "https://platum.kr/wp-json/wp/v2/posts",
       defaultCardType: "company",
     }),
     "etnews-ai": createRssAdapter({
@@ -46,28 +52,38 @@ export function getSourceAdapters(): Partial<Record<SourceKey, SourceAdapter>> {
       key: "wowtale",
       name: "와우테일 RSS",
       endpoint: process.env.WOWTALE_RSS_URL || "https://wowtale.net/feed",
+      wordpressApiEndpoint: "https://wowtale.net/wp-json/wp/v2/posts",
       defaultCardType: "investment",
       include: includeInvestmentChange,
     }),
-    "mss-press": createRssAdapter({
+    "mss-press": createGovernmentBoardAdapter({
       key: "mss-press",
       name: "중소벤처기업부 보도자료",
-      endpoint: "https://www.mss.go.kr/rss/smba/board/86.do",
+      rssEndpoint: "https://www.mss.go.kr/rss/smba/board/86.do",
+      pageEndpoint: (page) =>
+        `https://www.mss.go.kr/site/smba/ex/bbs/List.do?cbIdx=86&pageIndex=${page}`,
+      parsePage: (html) => parseMssBoard(html, "86"),
       defaultCardType: "policy",
       include: includeStartupPolicy,
     }),
-    "mss-business": createRssAdapter({
+    "mss-business": createGovernmentBoardAdapter({
       key: "mss-business",
       name: "중소벤처기업부 사업공고",
-      endpoint: "https://www.mss.go.kr/rss/smba/board/310.do",
+      rssEndpoint: "https://www.mss.go.kr/rss/smba/board/310.do",
+      pageEndpoint: (page) =>
+        `https://www.mss.go.kr/site/smba/ex/bbs/List.do?cbIdx=310&pageIndex=${page}`,
+      parsePage: (html) => parseMssBoard(html, "310"),
       defaultCardType: "policy",
       include: includeStartupPolicy,
     }),
-    "motir-press": createRssAdapter({
+    "motir-press": createGovernmentBoardAdapter({
       key: "motir-press",
       name: "산업통상부 보도자료",
-      endpoint: "https://www.motir.go.kr/kor/article/ATCL3f49a5a8c/rss",
-      method: "POST",
+      rssEndpoint: "https://www.motir.go.kr/kor/article/ATCL3f49a5a8c/rss",
+      rssMethod: "POST",
+      pageEndpoint: (page) =>
+        `https://www.motir.go.kr/kor/article/ATCL3f49a5a8c?pageIndex=${page}`,
+      parsePage: parseMotirBoard,
       defaultCardType: "policy",
       include: includeStartupPolicy,
     }),
@@ -75,6 +91,7 @@ export function getSourceAdapters(): Partial<Record<SourceKey, SourceAdapter>> {
       key: "startup-recipe",
       name: "스타트업레시피 RSS",
       endpoint: "https://startuprecipe.co.kr/feed",
+      wordpressApiEndpoint: "https://startuprecipe.co.kr/wp-json/wp/v2/posts",
       defaultCardType: "company",
       include: includeStartupRecipe,
     }),

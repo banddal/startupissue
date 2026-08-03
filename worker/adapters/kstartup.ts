@@ -71,6 +71,7 @@ export function createKStartupAdapter(options: {
     key: "kstartup",
     name: "K-Startup 지원사업 공고",
     defaultCardType: "policy",
+    supportsBackfill: true,
     async fetch(cursor) {
       const endpoint = new URL(options.endpoint ?? DEFAULT_ENDPOINT);
       endpoint.searchParams.set("serviceKey", options.serviceKey);

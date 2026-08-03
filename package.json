@@ -14,6 +14,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "worker": "tsx worker/run.ts",
+    "worker:backfill": "tsx worker/run.ts backfill",
     "worker:refresh-indicators": "tsx scripts/refresh-ecosystem-indicators.ts",
     "worker:reclassify": "tsx scripts/reclassify-cards.ts",
     "worker:filter-timeline": "tsx scripts/apply-main-timeline-filter.ts",
