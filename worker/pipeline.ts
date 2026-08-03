@@ -9,6 +9,7 @@ import {
   sources,
 } from "../src/server/db/schema";
 import { makeSummary, normalizeItem } from "./core/normalize";
+import { classifyCardType } from "./core/card-classification";
 import { createWorkerDatabase } from "./db";
 import type { NormalizedSourceItem, RawSourceItem, SourceAdapter } from "./types";
 
@@ -94,7 +95,13 @@ async function persistNormalizedItem(
   sourceId: string,
   defaultCardType: SourceAdapter["defaultCardType"],
   item: NormalizedSourceItem,
+  sourceKey: string,
 ) {
+  const cardType = classifyCardType({
+    sourceKey,
+    defaultCardType,
+    title: item.title,
+  });
   return db.transaction(async (tx) => {
     const [existing] = await tx
       .select({
@@ -120,7 +127,7 @@ async function persistNormalizedItem(
           .values({
             title: item.title,
             summary: makeSummary(item),
-            type: defaultCardType,
+            type: cardType,
             primarySourceItemId: existing.id,
             publishedAt: item.publishedAt,
             reviewStatus: "pending_review",
@@ -165,7 +172,7 @@ async function persistNormalizedItem(
       .values({
         title: item.title,
         summary: makeSummary(item),
-        type: defaultCardType,
+        type: cardType,
         primarySourceItemId: createdItem.id,
         publishedAt: item.publishedAt,
         reviewStatus: "pending_review",
@@ -342,6 +349,7 @@ export async function runPersistentIngestion(
             source.id,
             adapter.defaultCardType,
             normalized,
+            adapter.key,
           );
           counts[result] += 1;
         } catch (error) {

@@ -49,7 +49,7 @@ export default async function TodayPage({
     noteOnly ? isNotNull(cards.note) : undefined,
   );
 
-  const [latestCards, todayCountResult, lastRun] = await Promise.all([
+  const [latestCards, todayCountResult, lastRun, typeCountRows] = await Promise.all([
     db
       .select({
         id: cards.id,
@@ -84,6 +84,11 @@ export default async function TodayPage({
       .innerJoin(sources, eq(sources.id, ingestionRuns.sourceId))
       .orderBy(desc(ingestionRuns.startedAt))
       .limit(1),
+    db
+      .select({ type: cards.type, value: count() })
+      .from(cards)
+      .where(visibleCard)
+      .groupBy(cards.type),
   ]);
 
   const todayCards = latestCards.filter(
@@ -91,6 +96,9 @@ export default async function TodayPage({
   );
   const displayedCards = todayCards.length > 0 ? todayCards : latestCards;
   const isShowingArchive = todayCards.length === 0 && latestCards.length > 0;
+  const typeCounts = new Map(
+    typeCountRows.map((row) => [row.type, row.value]),
+  );
   const filterHref = (input: {
     type?: typeof selectedType;
     important?: boolean;
@@ -170,6 +178,19 @@ export default async function TodayPage({
             </p>
           ) : null}
         </article>
+      </section>
+
+      <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {CARD_TYPES.map((type) => (
+          <Link
+            className="rounded-xl border border-neutral-200 bg-white p-4 transition hover:border-neutral-400"
+            href={`/today?type=${type}`}
+            key={type}
+          >
+            <p className="text-sm text-neutral-500">{CARD_TYPE_LABELS[type]}</p>
+            <p className="mt-1 text-2xl font-semibold">{typeCounts.get(type) ?? 0}</p>
+          </Link>
+        ))}
       </section>
 
       {isShowingArchive ? (
