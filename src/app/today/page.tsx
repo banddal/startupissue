@@ -1,7 +1,9 @@
-import { and, count, desc, eq, gte, isNull, ne } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNull, ne } from "drizzle-orm";
 import Link from "next/link";
 
 import { SignOutButton } from "@/components/auth-buttons";
+import { ImportantButton } from "@/components/important-button";
+import { cardTimelineLabel, startOfTodayInSeoul } from "@/lib/card-timeline";
 import {
   CARD_TYPE_LABELS,
   CARD_TYPES,
@@ -9,16 +11,15 @@ import {
 } from "@/lib/card-types";
 import { getCurrentUser } from "@/server/auth/guards";
 import { db } from "@/server/db";
-import { cards, ingestionRuns, sourceItems, sources } from "@/server/db/schema";
+import {
+  cards,
+  cardUserStates,
+  ingestionRuns,
+  sourceItems,
+  sources,
+} from "@/server/db/schema";
 
 export const dynamic = "force-dynamic";
-
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
-
-const dateFormatter = new Intl.DateTimeFormat("ko-KR", {
-  dateStyle: "medium",
-  timeZone: "Asia/Seoul",
-});
 
 const dateTimeFormatter = new Intl.DateTimeFormat("ko-KR", {
   dateStyle: "medium",
@@ -26,25 +27,16 @@ const dateTimeFormatter = new Intl.DateTimeFormat("ko-KR", {
   timeZone: "Asia/Seoul",
 });
 
-function startOfTodayInSeoul(now = new Date()) {
-  const shifted = new Date(now.getTime() + KST_OFFSET_MS);
-  return new Date(
-    Date.UTC(
-      shifted.getUTCFullYear(),
-      shifted.getUTCMonth(),
-      shifted.getUTCDate(),
-    ) - KST_OFFSET_MS,
-  );
-}
-
 export default async function TodayPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string }>;
+  searchParams: Promise<{ type?: string; important?: string }>;
 }) {
-  const requestedType = (await searchParams).type;
+  const filters = await searchParams;
+  const requestedType = filters.type;
   const selectedType = isCardType(requestedType) ? requestedType : undefined;
   const user = await getCurrentUser();
+  const importantOnly = filters.important === "1" && user?.status === "active";
   const todayStartedAt = startOfTodayInSeoul();
   const visibleCard = and(
     ne(cards.reviewStatus, "hidden"),
@@ -53,9 +45,23 @@ export default async function TodayPage({
   const filteredCard = and(
     visibleCard,
     selectedType ? eq(cards.type, selectedType) : undefined,
+    importantOnly
+      ? inArray(
+          cards.id,
+          db
+            .select({ cardId: cardUserStates.cardId })
+            .from(cardUserStates)
+            .where(
+              and(
+                eq(cardUserStates.userId, user.id),
+                eq(cardUserStates.important, true),
+              ),
+            ),
+        )
+      : undefined,
   );
 
-  const [latestCards, todayCountResult, lastRun] = await Promise.all([
+  const [latestCards, todayCountResult, lastRun, importantRows] = await Promise.all([
     db
       .select({
         id: cards.id,
@@ -88,6 +94,17 @@ export default async function TodayPage({
       .innerJoin(sources, eq(sources.id, ingestionRuns.sourceId))
       .orderBy(desc(ingestionRuns.startedAt))
       .limit(1),
+    user?.status === "active"
+      ? db
+          .select({ cardId: cardUserStates.cardId })
+          .from(cardUserStates)
+          .where(
+            and(
+              eq(cardUserStates.userId, user.id),
+              eq(cardUserStates.important, true),
+            ),
+          )
+      : Promise.resolve([]),
   ]);
 
   const todayCards = latestCards.filter(
@@ -95,6 +112,7 @@ export default async function TodayPage({
   );
   const displayedCards = todayCards.length > 0 ? todayCards : latestCards;
   const isShowingArchive = todayCards.length === 0 && latestCards.length > 0;
+  const importantCardIds = new Set(importantRows.map((row) => row.cardId));
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
@@ -206,12 +224,26 @@ export default async function TodayPage({
                   ? "bg-neutral-900 text-white"
                   : "bg-white text-neutral-700 ring-1 ring-neutral-200"
               }`}
-              href={`/today?type=${type}`}
+              href={`/today?type=${type}${importantOnly ? "&important=1" : ""}`}
               key={type}
             >
               {CARD_TYPE_LABELS[type]}
             </Link>
           ))}
+          {user?.status === "active" ? (
+            <Link
+              className={`rounded-full px-4 py-2 text-sm ${
+                importantOnly
+                  ? "bg-amber-400 text-amber-950"
+                  : "bg-white text-neutral-700 ring-1 ring-neutral-200"
+              }`}
+              href={importantOnly
+                ? (selectedType ? `/today?type=${selectedType}` : "/today")
+                : `/today?${selectedType ? `type=${selectedType}&` : ""}important=1`}
+            >
+              ★ 중요만
+            </Link>
+          ) : null}
         </nav>
 
         {displayedCards.length === 0 ? (
@@ -225,34 +257,36 @@ export default async function TodayPage({
           <ol className="mt-5 grid gap-4">
             {displayedCards.map((card) => (
               <li key={card.id}>
-                <Link
-                  className="block rounded-2xl border border-neutral-200 bg-white p-6 transition hover:border-neutral-400"
-                  href={`/cards/${card.id}`}
-                >
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-                    <span className="rounded-full bg-neutral-100 px-2 py-1 font-medium text-neutral-700">
-                      {CARD_TYPE_LABELS[card.type]}
-                    </span>
-                    <time dateTime={card.publishedAt.toISOString()}>
-                      {dateFormatter.format(card.publishedAt)}
-                    </time>
-                    {card.sourceName ? (
-                      <>
-                        <span>·</span>
-                        <span>{card.sourceName}</span>
-                      </>
+                <article className="rounded-2xl border border-neutral-200 bg-white p-6 transition hover:border-neutral-400">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+                      <span className="rounded-full bg-blue-100 px-2 py-1 font-medium text-blue-800">
+                        {cardTimelineLabel(card.collectedAt)}
+                      </span>
+                      <span className="rounded-full bg-neutral-100 px-2 py-1 font-medium text-neutral-700">
+                        {CARD_TYPE_LABELS[card.type]}
+                      </span>
+                      {card.sourceName ? <span>{card.sourceName}</span> : null}
+                    </div>
+                    {user?.status === "active" ? (
+                      <ImportantButton
+                        cardId={card.id}
+                        important={importantCardIds.has(card.id)}
+                      />
                     ) : null}
                   </div>
-                  <h3 className="mt-3 text-xl font-semibold">{card.title}</h3>
-                  <p className="mt-2 line-clamp-3 text-sm leading-6 text-neutral-600">
-                    {card.summary}
-                  </p>
-                  {card.sourceUrl ? (
-                    <p className="mt-4 text-xs text-neutral-500">
-                      원문 연결됨
+                  <Link className="block" href={`/cards/${card.id}`}>
+                    <h3 className="mt-3 text-xl font-semibold">{card.title}</h3>
+                    <p className="mt-2 line-clamp-3 text-sm leading-6 text-neutral-600">
+                      {card.summary}
                     </p>
-                  ) : null}
-                </Link>
+                    <p className="mt-4 text-xs text-neutral-500">
+                      발표 {dateTimeFormatter.format(card.publishedAt)} · 수집{" "}
+                      {dateTimeFormatter.format(card.collectedAt)}
+                      {card.sourceUrl ? " · 원문 연결됨" : ""}
+                    </p>
+                  </Link>
+                </article>
               </li>
             ))}
           </ol>

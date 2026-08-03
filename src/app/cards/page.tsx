@@ -1,28 +1,35 @@
-import { and, desc, eq, isNull, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
 import Link from "next/link";
 
+import { ImportantButton } from "@/components/important-button";
+import { cardTimelineLabel } from "@/lib/card-timeline";
 import {
   CARD_TYPE_LABELS,
   CARD_TYPES,
   isCardType,
 } from "@/lib/card-types";
 import { db } from "@/server/db";
-import { cards } from "@/server/db/schema";
+import { getCurrentUser } from "@/server/auth/guards";
+import { cards, cardUserStates, sourceItems, sources } from "@/server/db/schema";
 
 export const dynamic = "force-dynamic";
 
-const dateFormatter = new Intl.DateTimeFormat("ko-KR", {
+const dateTimeFormatter = new Intl.DateTimeFormat("ko-KR", {
   dateStyle: "medium",
+  timeStyle: "short",
   timeZone: "Asia/Seoul",
 });
 
 export default async function CardsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string }>;
+  searchParams: Promise<{ type?: string; important?: string }>;
 }) {
-  const requestedType = (await searchParams).type;
+  const filters = await searchParams;
+  const requestedType = filters.type;
   const selectedType = isCardType(requestedType) ? requestedType : undefined;
+  const user = await getCurrentUser();
+  const importantOnly = filters.important === "1" && user?.status === "active";
   const items = await db
     .select({
       id: cards.id,
@@ -30,17 +37,47 @@ export default async function CardsPage({
       summary: cards.summary,
       type: cards.type,
       publishedAt: cards.publishedAt,
+      collectedAt: cards.collectedAt,
+      sourceName: sources.name,
     })
     .from(cards)
+    .leftJoin(sourceItems, eq(sourceItems.id, cards.primarySourceItemId))
+    .leftJoin(sources, eq(sources.id, sourceItems.sourceId))
     .where(
       and(
         ne(cards.reviewStatus, "hidden"),
         isNull(cards.mergedIntoCardId),
         selectedType ? eq(cards.type, selectedType) : undefined,
+        importantOnly
+          ? inArray(
+              cards.id,
+              db
+                .select({ cardId: cardUserStates.cardId })
+                .from(cardUserStates)
+                .where(
+                  and(
+                    eq(cardUserStates.userId, user.id),
+                    eq(cardUserStates.important, true),
+                  ),
+                ),
+            )
+          : undefined,
       ),
     )
     .orderBy(desc(cards.publishedAt))
     .limit(100);
+  const importantRows = user?.status === "active"
+    ? await db
+        .select({ cardId: cardUserStates.cardId })
+        .from(cardUserStates)
+        .where(
+          and(
+            eq(cardUserStates.userId, user.id),
+            eq(cardUserStates.important, true),
+          ),
+        )
+    : [];
+  const importantCardIds = new Set(importantRows.map((row) => row.cardId));
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
@@ -72,12 +109,26 @@ export default async function CardsPage({
                 ? "bg-neutral-900 text-white"
                 : "bg-white text-neutral-700 ring-1 ring-neutral-200"
             }`}
-            href={`/cards?type=${type}`}
+            href={`/cards?type=${type}${importantOnly ? "&important=1" : ""}`}
             key={type}
           >
             {CARD_TYPE_LABELS[type]}
           </Link>
         ))}
+        {user?.status === "active" ? (
+          <Link
+            className={`rounded-full px-4 py-2 text-sm ${
+              importantOnly
+                ? "bg-amber-400 text-amber-950"
+                : "bg-white text-neutral-700 ring-1 ring-neutral-200"
+            }`}
+            href={importantOnly
+              ? (selectedType ? `/cards?type=${selectedType}` : "/cards")
+              : `/cards?${selectedType ? `type=${selectedType}&` : ""}important=1`}
+          >
+            ★ 중요만
+          </Link>
+        ) : null}
       </nav>
 
       {items.length === 0 ? (
@@ -91,23 +142,35 @@ export default async function CardsPage({
         <ul className="mt-8 grid gap-4">
           {items.map((item) => (
             <li key={item.id}>
-              <Link
-                className="block rounded-2xl border border-neutral-200 bg-white p-6 transition hover:border-neutral-400"
-                href={`/cards/${item.id}`}
-              >
-                <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-                  <span className="rounded-full bg-neutral-100 px-2 py-1 font-medium text-neutral-700">
-                    {CARD_TYPE_LABELS[item.type]}
-                  </span>
-                  <time dateTime={item.publishedAt.toISOString()}>
-                    {dateFormatter.format(item.publishedAt)}
-                  </time>
+              <article className="rounded-2xl border border-neutral-200 bg-white p-6 transition hover:border-neutral-400">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+                    <span className="rounded-full bg-blue-100 px-2 py-1 font-medium text-blue-800">
+                      {cardTimelineLabel(item.collectedAt)}
+                    </span>
+                    <span className="rounded-full bg-neutral-100 px-2 py-1 font-medium text-neutral-700">
+                      {CARD_TYPE_LABELS[item.type]}
+                    </span>
+                    {item.sourceName ? <span>{item.sourceName}</span> : null}
+                  </div>
+                  {user?.status === "active" ? (
+                    <ImportantButton
+                      cardId={item.id}
+                      important={importantCardIds.has(item.id)}
+                    />
+                  ) : null}
                 </div>
-                <h2 className="mt-3 text-xl font-semibold">{item.title}</h2>
-                <p className="mt-2 line-clamp-3 text-sm leading-6 text-neutral-600">
-                  {item.summary}
-                </p>
-              </Link>
+                <Link className="block" href={`/cards/${item.id}`}>
+                  <h2 className="mt-3 text-xl font-semibold">{item.title}</h2>
+                  <p className="mt-2 line-clamp-3 text-sm leading-6 text-neutral-600">
+                    {item.summary}
+                  </p>
+                  <p className="mt-4 text-xs text-neutral-500">
+                    발표 {dateTimeFormatter.format(item.publishedAt)} · 수집{" "}
+                    {dateTimeFormatter.format(item.collectedAt)}
+                  </p>
+                </Link>
+              </article>
             </li>
           ))}
         </ul>

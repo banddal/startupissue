@@ -3,8 +3,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { db } from "@/server/db";
-import { cards, cardSources, sourceItems, sources } from "@/server/db/schema";
+import {
+  cards,
+  cardSources,
+  cardUserStates,
+  sourceItems,
+  sources,
+} from "@/server/db/schema";
 import { CARD_TYPE_LABELS, CARD_TYPES } from "@/lib/card-types";
+import { cardTimelineLabel } from "@/lib/card-timeline";
+import { ImportantButton } from "@/components/important-button";
 import { getCurrentUser } from "@/server/auth/guards";
 import { updateCardType } from "./actions";
 
@@ -52,6 +60,18 @@ export default async function CardDetailPage({
     .limit(1);
 
   if (!item) notFound();
+  const [userState] = user?.status === "active"
+    ? await db
+        .select({ important: cardUserStates.important })
+        .from(cardUserStates)
+        .where(
+          and(
+            eq(cardUserStates.userId, user.id),
+            eq(cardUserStates.cardId, item.id),
+          ),
+        )
+        .limit(1)
+    : [];
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">
@@ -59,11 +79,22 @@ export default async function CardDetailPage({
         카드 목록
       </Link>
       <article className="mt-6 rounded-2xl border border-neutral-200 bg-white p-8">
-        <div className="flex flex-wrap items-center gap-2 text-sm text-neutral-500">
-          <span className="rounded-full bg-neutral-100 px-2 py-1 font-medium text-neutral-700">
-            {CARD_TYPE_LABELS[item.type]}
-          </span>
-          <span>{item.sourceName}</span>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-neutral-500">
+            <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800">
+              {cardTimelineLabel(item.collectedAt)}
+            </span>
+            <span className="rounded-full bg-neutral-100 px-2 py-1 font-medium text-neutral-700">
+              {CARD_TYPE_LABELS[item.type]}
+            </span>
+            <span>{item.sourceName}</span>
+          </div>
+          {user?.status === "active" ? (
+            <ImportantButton
+              cardId={item.id}
+              important={userState?.important ?? false}
+            />
+          ) : null}
         </div>
         <h1 className="mt-2 text-3xl font-semibold leading-tight">{item.title}</h1>
         <dl className="mt-6 grid gap-2 text-sm text-neutral-600 sm:grid-cols-2">
