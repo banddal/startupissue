@@ -40,28 +40,52 @@ function parseRssItem(value: unknown): RawSourceItem {
       text(item.content) ??
       text(item.description) ??
       text(item.summary),
-    publishedAt:
+    publishedAt: normalizePublishedAt(
       text(item.pubDate) ??
       text(item.published) ??
       text(item.updated) ??
       text(item["dc:date"]),
+    ),
     payload: value,
   };
+}
+
+function normalizePublishedAt(value: string | undefined) {
+  if (!value) return undefined;
+  const compact = value.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/);
+  if (!compact) return value;
+  return `${compact[1]}-${compact[2]}-${compact[3]}T${compact[4]}:${compact[5]}:${compact[6]}+09:00`;
 }
 
 export function parseRss(xml: string): RawSourceItem[] {
   const parsed = record(parser.parse(xml));
   const rssItems = asArray(record(record(parsed.rss).channel).item);
   const atomItems = asArray(record(parsed.feed).entry);
-  return [...rssItems, ...atomItems].map(parseRssItem);
+  const items = [...rssItems, ...atomItems].map(parseRssItem);
+  const identityCounts = new Map<string, number>();
+  for (const item of items) {
+    if (item.externalId) {
+      identityCounts.set(item.externalId, (identityCounts.get(item.externalId) ?? 0) + 1);
+    }
+  }
+  return items.map((item) =>
+    item.externalId && (identityCounts.get(item.externalId) ?? 0) > 1 && item.url
+      ? { ...item, externalId: item.url }
+      : item,
+  );
 }
 
-async function fetchText(url: string, attempts = 3): Promise<string> {
+async function fetchText(
+  url: string,
+  method: "GET" | "POST" = "GET",
+  attempts = 3,
+): Promise<string> {
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
       const response = await fetch(url, {
+        method,
         headers: { "user-agent": "StartupIssues/0.2 (+internal research)" },
         signal: AbortSignal.timeout(15_000),
       });
@@ -92,13 +116,14 @@ export function createRssAdapter(options: {
   endpoint: string;
   defaultCardType: CardType;
   include?: (item: RawSourceItem) => boolean;
+  method?: "GET" | "POST";
 }): SourceAdapter {
   return {
     key: options.key,
     name: options.name,
     defaultCardType: options.defaultCardType,
     async fetch() {
-      const items = parseRss(await fetchText(options.endpoint));
+      const items = parseRss(await fetchText(options.endpoint, options.method));
       return options.include ? items.filter(options.include) : items;
     },
   };

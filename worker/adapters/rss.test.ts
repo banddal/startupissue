@@ -27,4 +27,19 @@ describe("RSS adapter", () => {
   it("treats an empty feed as a successful zero-item result", () => {
     expect(parseRss("<rss><channel></channel></rss>")).toEqual([]);
   });
+
+  it("uses the item URL when a feed repeats ids and parses compact Korean dates", () => {
+    const items = parseRss(`
+      <rss><channel>
+        <item><id>86</id><link>https://example.com/1</link><title>첫 글</title><pubDate>20260730074459</pubDate></item>
+        <item><id>86</id><link>https://example.com/2</link><title>둘째 글</title><pubDate>20260729135006</pubDate></item>
+      </channel></rss>
+    `);
+
+    expect(items.map((item) => item.externalId)).toEqual([
+      "https://example.com/1",
+      "https://example.com/2",
+    ]);
+    expect(items[0]?.publishedAt).toBe("2026-07-30T07:44:59+09:00");
+  });
 });

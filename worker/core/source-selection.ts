@@ -18,6 +18,23 @@ function title(item: RawSourceItem) {
   return item.title?.replace(/&(?:#8216|#8217|lsquo|rsquo);/gi, "'").trim() ?? "";
 }
 
+const STARTUP_POLICY_SIGNALS = [
+  /스타트업|창업|소셜벤처|스케일업/i,
+  /벤처캐피털|벤처투자|VC\b|CVC\b/i,
+  /투자유치|모태펀드|벤처펀드|창업펀드/i,
+  /기술사업화|규제샌드박스|프리팁스|팁스|TIPS/i,
+  /오픈이노베이션|기업가정신|창업생태계|딥테크/i,
+];
+
+export function includeStartupPolicy(item: RawSourceItem) {
+  const value = `${title(item)} ${item.body ?? ""}`.replace(/중소벤처기업부/g, "");
+  return STARTUP_POLICY_SIGNALS.some((signal) => signal.test(value));
+}
+
+export function includeStartupRecipe(item: RawSourceItem) {
+  return !/^\[(?:이번주행사|주간행사)\]/i.test(title(item));
+}
+
 export function includeTechnologyChange(item: RawSourceItem) {
   const value = title(item);
   if (/^\[(?:포토|사설|ET시선)\]/i.test(value)) return false;

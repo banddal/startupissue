@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   includeInvestmentChange,
+  includeStartupPolicy,
+  includeStartupRecipe,
   includeTechnologyChange,
 } from "./source-selection";
 
@@ -21,5 +23,16 @@ describe("source selection", () => {
     expect(includeInvestmentChange(item("슈퍼디스코, 젠엑시스 투자 유치"))).toBe(true);
     expect(includeInvestmentChange(item("AI 투자금, 범용 모델에서 인프라로 이동"))).toBe(true);
     expect(includeInvestmentChange(item("스타트업 밋업에 200명 참가"))).toBe(false);
+  });
+
+  it("keeps startup policy signals without accepting every SME notice", () => {
+    expect(includeStartupPolicy(item("중기부, 신산업 분야 스타트업 규제합리화"))).toBe(true);
+    expect(includeStartupPolicy(item("2026년 중소기업 CBAM 대응 지원사업"))).toBe(false);
+    expect(includeStartupPolicy(item("중소벤처기업부 소상공인 정책자금 공고"))).toBe(false);
+  });
+
+  it("drops event roundups from Startup Recipe", () => {
+    expect(includeStartupRecipe(item("[이번주행사] K-뷰티 진출 전략"))).toBe(false);
+    expect(includeStartupRecipe(item("6,000만 달러 유치한 금융 스타트업"))).toBe(true);
   });
 });

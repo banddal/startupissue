@@ -1,6 +1,3 @@
-import { fileURLToPath } from "node:url";
-import { resolve } from "node:path";
-
 import { normalizeItem } from "./core/normalize";
 import { runPersistentIngestion } from "./pipeline";
 import { getSourceAdapters, sourceKeys, type SourceKey } from "./sources";
@@ -32,7 +29,7 @@ export function parseArgs(args: string[]): CliOptions {
   };
 }
 
-async function main() {
+export async function main() {
   const options = parseArgs(process.argv.slice(2));
   const adapters = getSourceAdapters();
   let failed = false;
@@ -97,9 +94,4 @@ async function main() {
   }
 
   if (failed) process.exitCode = 1;
-}
-
-const entryPath = process.argv[1] ? resolve(process.argv[1]) : null;
-if (entryPath && fileURLToPath(import.meta.url) === entryPath) {
-  void main();
 }

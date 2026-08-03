@@ -2,16 +2,29 @@ import { config } from "dotenv";
 
 import { createKStartupAdapter } from "./adapters/kstartup";
 import { createRssAdapter } from "./adapters/rss";
-import type { SourceAdapter } from "./types";
+import { createStartupAllianceAdapter } from "./adapters/startup-alliance";
 import {
   includeInvestmentChange,
+  includeStartupPolicy,
+  includeStartupRecipe,
   includeTechnologyChange,
 } from "./core/source-selection";
+import type { SourceAdapter } from "./types";
 
 config({ path: ".env.local" });
 config();
 
-export const sourceKeys = ["platum", "etnews-ai", "wowtale", "kstartup"] as const;
+export const sourceKeys = [
+  "platum",
+  "etnews-ai",
+  "wowtale",
+  "kstartup",
+  "mss-press",
+  "mss-business",
+  "motir-press",
+  "startup-recipe",
+  "startup-alliance",
+] as const;
 export type SourceKey = (typeof sourceKeys)[number];
 
 export function getSourceAdapters(): Partial<Record<SourceKey, SourceAdapter>> {
@@ -36,6 +49,36 @@ export function getSourceAdapters(): Partial<Record<SourceKey, SourceAdapter>> {
       defaultCardType: "investment",
       include: includeInvestmentChange,
     }),
+    "mss-press": createRssAdapter({
+      key: "mss-press",
+      name: "중소벤처기업부 보도자료",
+      endpoint: "https://www.mss.go.kr/rss/smba/board/86.do",
+      defaultCardType: "policy",
+      include: includeStartupPolicy,
+    }),
+    "mss-business": createRssAdapter({
+      key: "mss-business",
+      name: "중소벤처기업부 사업공고",
+      endpoint: "https://www.mss.go.kr/rss/smba/board/310.do",
+      defaultCardType: "policy",
+      include: includeStartupPolicy,
+    }),
+    "motir-press": createRssAdapter({
+      key: "motir-press",
+      name: "산업통상부 보도자료",
+      endpoint: "https://www.motir.go.kr/kor/article/ATCL3f49a5a8c/rss",
+      method: "POST",
+      defaultCardType: "policy",
+      include: includeStartupPolicy,
+    }),
+    "startup-recipe": createRssAdapter({
+      key: "startup-recipe",
+      name: "스타트업레시피 RSS",
+      endpoint: "https://startuprecipe.co.kr/feed",
+      defaultCardType: "company",
+      include: includeStartupRecipe,
+    }),
+    "startup-alliance": createStartupAllianceAdapter(),
   };
 
   if (process.env.KSTARTUP_SERVICE_KEY) {
