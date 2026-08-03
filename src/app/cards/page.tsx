@@ -5,6 +5,7 @@ import { ImportantButton } from "@/components/important-button";
 import { cardTimelineLabel } from "@/lib/card-timeline";
 import {
   CARD_TYPE_LABELS,
+  CARD_TYPE_STYLES,
   CARD_TYPES,
   isCardType,
 } from "@/lib/card-types";
@@ -99,8 +100,8 @@ export default async function CardsPage({
           <Link
             className={`rounded-full px-4 py-2 text-sm ${
               selectedType === type
-                ? "bg-neutral-900 text-white"
-                : "bg-white text-neutral-700 ring-1 ring-neutral-200"
+                ? CARD_TYPE_STYLES[type].filterActive
+                : CARD_TYPE_STYLES[type].filter
             }`}
             href={filterHref({ type, important: importantOnly, note: noteOnly })}
             key={type}
@@ -133,13 +134,13 @@ export default async function CardsPage({
         <ul className="mt-8 grid gap-4">
           {items.map((item) => (
             <li key={item.id}>
-              <article className="rounded-2xl border border-neutral-200 bg-white p-6 transition hover:border-neutral-400">
+              <article className={`rounded-2xl border p-6 transition ${CARD_TYPE_STYLES[item.type].card}`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
                     <span className="rounded-full bg-blue-100 px-2 py-1 font-medium text-blue-800">
                       {cardTimelineLabel(item.collectedAt)}
                     </span>
-                    <span className="rounded-full bg-neutral-100 px-2 py-1 font-medium text-neutral-700">
+                    <span className={`rounded-full px-2 py-1 font-medium ${CARD_TYPE_STYLES[item.type].badge}`}>
                       {CARD_TYPE_LABELS[item.type]}
                     </span>
                     {item.sourceName ? <span>{item.sourceName}</span> : null}

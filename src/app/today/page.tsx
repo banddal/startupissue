@@ -6,6 +6,7 @@ import { ImportantButton } from "@/components/important-button";
 import { cardTimelineLabel, startOfTodayInSeoul } from "@/lib/card-timeline";
 import {
   CARD_TYPE_LABELS,
+  CARD_TYPE_STYLES,
   CARD_TYPES,
   isCardType,
 } from "@/lib/card-types";
@@ -224,7 +225,7 @@ export default async function TodayPage({
       <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {CARD_TYPES.map((type) => (
           <Link
-            className="rounded-xl border border-neutral-200 bg-white p-4 transition hover:border-neutral-400"
+            className={`rounded-xl border p-4 transition ${CARD_TYPE_STYLES[type].count}`}
             href={`/today?type=${type}`}
             key={type}
           >
@@ -273,8 +274,8 @@ export default async function TodayPage({
             <Link
               className={`rounded-full px-4 py-2 text-sm ${
                 selectedType === type
-                  ? "bg-neutral-900 text-white"
-                  : "bg-white text-neutral-700 ring-1 ring-neutral-200"
+                  ? CARD_TYPE_STYLES[type].filterActive
+                  : CARD_TYPE_STYLES[type].filter
               }`}
               href={filterHref({ type, important: importantOnly, note: noteOnly })}
               key={type}
@@ -315,13 +316,13 @@ export default async function TodayPage({
           <ol className="mt-5 grid gap-4">
             {displayedCards.map((card) => (
               <li key={card.id}>
-                <article className="rounded-2xl border border-neutral-200 bg-white p-6 transition hover:border-neutral-400">
+                <article className={`rounded-2xl border p-6 transition ${CARD_TYPE_STYLES[card.type].card}`}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500">
                       <span className="rounded-full bg-blue-100 px-2 py-1 font-medium text-blue-800">
                         {cardTimelineLabel(card.collectedAt)}
                       </span>
-                      <span className="rounded-full bg-neutral-100 px-2 py-1 font-medium text-neutral-700">
+                      <span className={`rounded-full px-2 py-1 font-medium ${CARD_TYPE_STYLES[card.type].badge}`}>
                         {CARD_TYPE_LABELS[card.type]}
                       </span>
                       {card.sourceName ? <span>{card.sourceName}</span> : null}

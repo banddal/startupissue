@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { CARD_TYPE_LABELS, CARD_TYPES, isCardType } from "./card-types";
+import {
+  CARD_TYPE_LABELS,
+  CARD_TYPE_STYLES,
+  CARD_TYPES,
+  isCardType,
+} from "./card-types";
 
 describe("card information types", () => {
   it("keeps the four PRD v0.3 information axes", () => {
@@ -22,5 +27,10 @@ describe("card information types", () => {
     expect(isCardType("investment")).toBe(true);
     expect(isCardType("sector")).toBe(false);
     expect(isCardType(undefined)).toBe(false);
+  });
+
+  it("gives every information type a distinct visual treatment", () => {
+    expect(new Set(CARD_TYPES.map((type) => CARD_TYPE_STYLES[type].card)).size).toBe(4);
+    expect(new Set(CARD_TYPES.map((type) => CARD_TYPE_STYLES[type].badge)).size).toBe(4);
   });
 });

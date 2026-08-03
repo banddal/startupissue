@@ -9,7 +9,11 @@ import {
   sourceItems,
   sources,
 } from "@/server/db/schema";
-import { CARD_TYPE_LABELS, CARD_TYPES } from "@/lib/card-types";
+import {
+  CARD_TYPE_LABELS,
+  CARD_TYPE_STYLES,
+  CARD_TYPES,
+} from "@/lib/card-types";
 import { cardTimelineLabel } from "@/lib/card-timeline";
 import { ImportantButton } from "@/components/important-button";
 import { NoteEditor } from "@/components/note-editor";
@@ -68,13 +72,13 @@ export default async function CardDetailPage({
       <Link className="text-sm underline" href="/cards">
         카드 목록
       </Link>
-      <article className="mt-6 rounded-2xl border border-neutral-200 bg-white p-8">
+      <article className={`mt-6 rounded-2xl border p-8 ${CARD_TYPE_STYLES[item.type].card}`}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2 text-sm text-neutral-500">
             <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800">
               {cardTimelineLabel(item.collectedAt)}
             </span>
-            <span className="rounded-full bg-neutral-100 px-2 py-1 font-medium text-neutral-700">
+            <span className={`rounded-full px-2 py-1 font-medium ${CARD_TYPE_STYLES[item.type].badge}`}>
               {CARD_TYPE_LABELS[item.type]}
             </span>
             <span>{item.sourceName}</span>
