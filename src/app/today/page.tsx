@@ -9,6 +9,7 @@ import {
   CARD_TYPES,
   isCardType,
 } from "@/lib/card-types";
+import { getEconomicIndicators } from "@/lib/economic-indicators";
 import { getCurrentUser } from "@/server/auth/guards";
 import { db } from "@/server/db";
 import {
@@ -49,7 +50,7 @@ export default async function TodayPage({
     noteOnly ? isNotNull(cards.note) : undefined,
   );
 
-  const [latestCards, todayCountResult, lastRun, typeCountRows] = await Promise.all([
+  const [latestCards, todayCountResult, lastRun, typeCountRows, economicIndicators] = await Promise.all([
     db
       .select({
         id: cards.id,
@@ -89,6 +90,7 @@ export default async function TodayPage({
       .from(cards)
       .where(visibleCard)
       .groupBy(cards.type),
+    getEconomicIndicators(),
   ]);
 
   const todayCards = latestCards.filter(
@@ -142,16 +144,55 @@ export default async function TodayPage({
           <div>
             <p className="text-sm font-medium text-neutral-500">경제 현황</p>
             <h2 className="mt-1 text-2xl font-semibold">
-              시장·거시지표 연결 준비 중
+              시장·거시지표
             </h2>
             <p className="mt-2 text-sm text-neutral-600">
-              기존 기업 수·논문 수 지표는 중단했습니다. 환율, KOSPI, KOSDAQ,
-              기준금리, 소비자물가를 실제 출처와 함께 연결합니다.
+              시장 지표는 15분, 거시지표는 공식 발표 주기로 갱신됩니다.
             </p>
           </div>
-          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-900">
-            데이터 전환 중
+          <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-900">
+            실제 데이터
           </span>
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {economicIndicators.map((indicator) => {
+            const changeClass =
+              indicator.change === null
+                ? "text-neutral-500"
+                : indicator.change > 0
+                  ? "text-red-600"
+                  : indicator.change < 0
+                    ? "text-blue-600"
+                    : "text-neutral-500";
+            return (
+              <article className="rounded-xl bg-neutral-50 p-4" key={indicator.code}>
+                <p className="text-xs font-medium text-neutral-500">{indicator.label}</p>
+                <p className="mt-2 text-xl font-semibold tabular-nums">
+                  {indicator.value === null
+                    ? "수집 실패"
+                    : `${indicator.value.toLocaleString("ko-KR", { maximumFractionDigits: 2 })}${indicator.unit}`}
+                </p>
+                {indicator.change !== null ? (
+                  <p className={`mt-1 text-xs tabular-nums ${changeClass}`}>
+                    전일대비 {indicator.change > 0 ? "+" : ""}
+                    {indicator.change.toLocaleString("ko-KR", { maximumFractionDigits: 2 })}
+                    {indicator.changeUnit}
+                  </p>
+                ) : null}
+                <p className="mt-3 text-[11px] text-neutral-500">
+                  {indicator.observedLabel ?? "최신값 확인 불가"}
+                </p>
+                <a
+                  className="mt-1 inline-block text-[11px] underline"
+                  href={indicator.sourceUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  출처: {indicator.sourceLabel}
+                </a>
+              </article>
+            );
+          })}
         </div>
       </section>
 
