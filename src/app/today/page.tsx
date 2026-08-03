@@ -1,7 +1,7 @@
-import { and, count, desc, eq, gte, inArray, isNull, ne } from "drizzle-orm";
+import { and, count, desc, eq, gte, isNotNull, isNull, ne } from "drizzle-orm";
 import Link from "next/link";
 
-import { SignInButton, SignOutButton } from "@/components/auth-buttons";
+import { SignOutButton } from "@/components/auth-buttons";
 import { ImportantButton } from "@/components/important-button";
 import { cardTimelineLabel, startOfTodayInSeoul } from "@/lib/card-timeline";
 import {
@@ -13,9 +13,7 @@ import { getCurrentUser } from "@/server/auth/guards";
 import { db } from "@/server/db";
 import {
   cards,
-  cardUserStates,
   ingestionRuns,
-  notes,
   sourceItems,
   sources,
 } from "@/server/db/schema";
@@ -37,8 +35,8 @@ export default async function TodayPage({
   const requestedType = filters.type;
   const selectedType = isCardType(requestedType) ? requestedType : undefined;
   const user = await getCurrentUser();
-  const importantOnly = filters.important === "1" && user?.status === "active";
-  const noteOnly = filters.note === "1" && user?.status === "active";
+  const importantOnly = filters.important === "1";
+  const noteOnly = filters.note === "1";
   const todayStartedAt = startOfTodayInSeoul();
   const visibleCard = and(
     ne(cards.reviewStatus, "hidden"),
@@ -47,32 +45,11 @@ export default async function TodayPage({
   const filteredCard = and(
     visibleCard,
     selectedType ? eq(cards.type, selectedType) : undefined,
-    importantOnly
-      ? inArray(
-          cards.id,
-          db
-            .select({ cardId: cardUserStates.cardId })
-            .from(cardUserStates)
-            .where(
-              and(
-                eq(cardUserStates.userId, user.id),
-                eq(cardUserStates.important, true),
-              ),
-            ),
-        )
-      : undefined,
-    noteOnly
-      ? inArray(
-          cards.id,
-          db
-            .select({ cardId: notes.cardId })
-            .from(notes)
-            .where(eq(notes.userId, user.id)),
-        )
-      : undefined,
+    importantOnly ? eq(cards.important, true) : undefined,
+    noteOnly ? isNotNull(cards.note) : undefined,
   );
 
-  const [latestCards, todayCountResult, lastRun, importantRows, noteRows] = await Promise.all([
+  const [latestCards, todayCountResult, lastRun] = await Promise.all([
     db
       .select({
         id: cards.id,
@@ -81,6 +58,8 @@ export default async function TodayPage({
         type: cards.type,
         publishedAt: cards.publishedAt,
         collectedAt: cards.collectedAt,
+        important: cards.important,
+        note: cards.note,
         sourceName: sources.name,
         sourceUrl: sourceItems.canonicalUrl,
       })
@@ -105,23 +84,6 @@ export default async function TodayPage({
       .innerJoin(sources, eq(sources.id, ingestionRuns.sourceId))
       .orderBy(desc(ingestionRuns.startedAt))
       .limit(1),
-    user?.status === "active"
-      ? db
-          .select({ cardId: cardUserStates.cardId })
-          .from(cardUserStates)
-          .where(
-            and(
-              eq(cardUserStates.userId, user.id),
-              eq(cardUserStates.important, true),
-            ),
-          )
-      : Promise.resolve([]),
-    user?.status === "active"
-      ? db
-          .select({ cardId: notes.cardId })
-          .from(notes)
-          .where(eq(notes.userId, user.id))
-      : Promise.resolve([]),
   ]);
 
   const todayCards = latestCards.filter(
@@ -129,8 +91,6 @@ export default async function TodayPage({
   );
   const displayedCards = todayCards.length > 0 ? todayCards : latestCards;
   const isShowingArchive = todayCards.length === 0 && latestCards.length > 0;
-  const importantCardIds = new Set(importantRows.map((row) => row.cardId));
-  const noteCardIds = new Set(noteRows.map((row) => row.cardId));
   const filterHref = (input: {
     type?: typeof selectedType;
     important?: boolean;
@@ -165,16 +125,9 @@ export default async function TodayPage({
           <Link className="text-sm underline" href="/cards">
             전체 자료
           </Link>
-          {user ? <SignOutButton /> : <SignInButton />}
+          {user ? <SignOutButton /> : null}
         </nav>
       </header>
-
-      {!user ? (
-        <section className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-950">
-          <p>중요 체크와 개인 메모는 로그인 후 카드 상세에서 사용할 수 있습니다.</p>
-          <SignInButton />
-        </section>
-      ) : null}
 
       <section className="mt-10 rounded-2xl border border-neutral-200 bg-white p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -267,38 +220,26 @@ export default async function TodayPage({
               {CARD_TYPE_LABELS[type]}
             </Link>
           ))}
-          {user?.status === "active" ? (
-            <Link
-              className={`rounded-full px-4 py-2 text-sm ${
-                importantOnly
-                  ? "bg-amber-400 text-amber-950"
-                  : "bg-white text-neutral-700 ring-1 ring-neutral-200"
-              }`}
-              href={filterHref({
-                type: selectedType,
-                important: !importantOnly,
-                note: noteOnly,
-              })}
-            >
-              ★ 중요만
-            </Link>
-          ) : null}
-          {user?.status === "active" ? (
-            <Link
-              className={`rounded-full px-4 py-2 text-sm ${
-                noteOnly
-                  ? "bg-emerald-500 text-white"
-                  : "bg-white text-neutral-700 ring-1 ring-neutral-200"
-              }`}
-              href={filterHref({
-                type: selectedType,
-                important: importantOnly,
-                note: !noteOnly,
-              })}
-            >
-              메모 있음
-            </Link>
-          ) : null}
+          <Link
+            className={`rounded-full px-4 py-2 text-sm ${
+              importantOnly
+                ? "bg-amber-400 text-amber-950"
+                : "bg-white text-neutral-700 ring-1 ring-neutral-200"
+            }`}
+            href={filterHref({ type: selectedType, important: !importantOnly, note: noteOnly })}
+          >
+            ★ 중요만
+          </Link>
+          <Link
+            className={`rounded-full px-4 py-2 text-sm ${
+              noteOnly
+                ? "bg-emerald-500 text-white"
+                : "bg-white text-neutral-700 ring-1 ring-neutral-200"
+            }`}
+            href={filterHref({ type: selectedType, important: importantOnly, note: !noteOnly })}
+          >
+            메모 있음
+          </Link>
         </nav>
 
         {displayedCards.length === 0 ? (
@@ -322,18 +263,13 @@ export default async function TodayPage({
                         {CARD_TYPE_LABELS[card.type]}
                       </span>
                       {card.sourceName ? <span>{card.sourceName}</span> : null}
-                      {noteCardIds.has(card.id) ? (
+                      {card.note ? (
                         <span className="rounded-full bg-emerald-100 px-2 py-1 font-medium text-emerald-800">
                           메모 있음
                         </span>
                       ) : null}
                     </div>
-                    {user?.status === "active" ? (
-                      <ImportantButton
-                        cardId={card.id}
-                        important={importantCardIds.has(card.id)}
-                      />
-                    ) : null}
+                    <ImportantButton cardId={card.id} important={card.important} />
                   </div>
                   <Link className="block" href={`/cards/${card.id}`}>
                     <h3 className="mt-3 text-xl font-semibold">{card.title}</h3>

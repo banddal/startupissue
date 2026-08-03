@@ -166,6 +166,8 @@ export const cards = pgTable(
     investmentStage: text("investment_stage"),
     investmentAmount: numeric("investment_amount", { precision: 24, scale: 4 }),
     investmentCurrency: text("investment_currency"),
+    important: boolean("important").notNull().default(false),
+    note: text("note"),
     primarySourceItemId: uuid("primary_source_item_id").references(
       (): AnyPgColumn => sourceItems.id,
       { onDelete: "restrict" },

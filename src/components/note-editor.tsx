@@ -18,7 +18,7 @@ export function NoteEditor({ cardId, body }: { cardId: string; body: string }) {
       </label>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-neutral-500">
-          카드당 메모 하나 · 내용을 비우고 저장하면 삭제됩니다.
+          공용 메모 하나 · 내용을 비우고 저장하면 삭제됩니다.
         </p>
         <button
           className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white"

@@ -1,37 +1,28 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { requireActiveUser } from "@/server/auth/guards";
 import { db } from "@/server/db";
-import { cardUserStates } from "@/server/db/schema";
+import { cards } from "@/server/db/schema";
 
 const cardIdSchema = z.string().uuid();
 
 export async function toggleCardImportant(cardIdValue: string) {
-  const user = await requireActiveUser();
   const cardId = cardIdSchema.parse(cardIdValue);
   const [current] = await db
-    .select({ important: cardUserStates.important })
-    .from(cardUserStates)
-    .where(
-      and(
-        eq(cardUserStates.userId, user.id),
-        eq(cardUserStates.cardId, cardId),
-      ),
-    )
+    .select({ important: cards.important })
+    .from(cards)
+    .where(eq(cards.id, cardId))
     .limit(1);
+  if (!current) throw new Error("Card not found.");
   const important = !(current?.important ?? false);
 
   await db
-    .insert(cardUserStates)
-    .values({ userId: user.id, cardId, important })
-    .onConflictDoUpdate({
-      target: [cardUserStates.userId, cardUserStates.cardId],
-      set: { important, updatedAt: new Date() },
-    });
+    .update(cards)
+    .set({ important, updatedAt: new Date() })
+    .where(eq(cards.id, cardId));
 
   revalidatePath("/today");
   revalidatePath("/cards");

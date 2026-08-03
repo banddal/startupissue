@@ -6,8 +6,6 @@ import { db } from "@/server/db";
 import {
   cards,
   cardSources,
-  cardUserStates,
-  notes,
   sourceItems,
   sources,
 } from "@/server/db/schema";
@@ -15,7 +13,6 @@ import { CARD_TYPE_LABELS, CARD_TYPES } from "@/lib/card-types";
 import { cardTimelineLabel } from "@/lib/card-timeline";
 import { ImportantButton } from "@/components/important-button";
 import { NoteEditor } from "@/components/note-editor";
-import { SignInButton } from "@/components/auth-buttons";
 import { getCurrentUser } from "@/server/auth/guards";
 import { updateCardType } from "./actions";
 
@@ -43,6 +40,8 @@ export default async function CardDetailPage({
       type: cards.type,
       publishedAt: cards.publishedAt,
       collectedAt: cards.collectedAt,
+      important: cards.important,
+      note: cards.note,
       bodyTruncated: cards.bodyTruncated,
       bodyText: sourceItems.bodyText,
       canonicalUrl: sourceItems.canonicalUrl,
@@ -63,25 +62,6 @@ export default async function CardDetailPage({
     .limit(1);
 
   if (!item) notFound();
-  const [userState] = user?.status === "active"
-    ? await db
-        .select({ important: cardUserStates.important })
-        .from(cardUserStates)
-        .where(
-          and(
-            eq(cardUserStates.userId, user.id),
-            eq(cardUserStates.cardId, item.id),
-          ),
-        )
-        .limit(1)
-    : [];
-  const [note] = user?.status === "active"
-    ? await db
-        .select({ body: notes.body })
-        .from(notes)
-        .where(and(eq(notes.userId, user.id), eq(notes.cardId, item.id)))
-        .limit(1)
-    : [];
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">
@@ -99,12 +79,7 @@ export default async function CardDetailPage({
             </span>
             <span>{item.sourceName}</span>
           </div>
-          {user?.status === "active" ? (
-            <ImportantButton
-              cardId={item.id}
-              important={userState?.important ?? false}
-            />
-          ) : null}
+          <ImportantButton cardId={item.id} important={item.important} />
         </div>
         <h1 className="mt-2 text-3xl font-semibold leading-tight">{item.title}</h1>
         <dl className="mt-6 grid gap-2 text-sm text-neutral-600 sm:grid-cols-2">
@@ -145,19 +120,7 @@ export default async function CardDetailPage({
             </button>
           </form>
         ) : null}
-        {user?.status === "active" ? (
-          <NoteEditor cardId={item.id} body={note?.body ?? ""} />
-        ) : !user ? (
-          <section className="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-5">
-            <h2 className="font-semibold text-blue-950">중요 체크·개인 메모</h2>
-            <p className="mt-2 text-sm text-blue-900">
-              로그인하면 이 카드에 중요 체크와 개인 메모를 남길 수 있습니다.
-            </p>
-            <div className="mt-4">
-              <SignInButton />
-            </div>
-          </section>
-        ) : null}
+        <NoteEditor cardId={item.id} body={item.note ?? ""} />
         <p className="mt-8 whitespace-pre-wrap text-base leading-8 text-neutral-800">
           {item.bodyText || item.summary}
         </p>

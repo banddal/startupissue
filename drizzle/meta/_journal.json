@@ -71,6 +71,13 @@
       "when": 1785754800000,
       "tag": "0009_card_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785762000000,
+      "tag": "0010_shared_card_state",
+      "breakpoints": true
     }
   ]
 }

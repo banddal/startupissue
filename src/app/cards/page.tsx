@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, ne } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, ne } from "drizzle-orm";
 import Link from "next/link";
 
 import { ImportantButton } from "@/components/important-button";
@@ -9,11 +9,8 @@ import {
   isCardType,
 } from "@/lib/card-types";
 import { db } from "@/server/db";
-import { getCurrentUser } from "@/server/auth/guards";
 import {
   cards,
-  cardUserStates,
-  notes,
   sourceItems,
   sources,
 } from "@/server/db/schema";
@@ -34,9 +31,8 @@ export default async function CardsPage({
   const filters = await searchParams;
   const requestedType = filters.type;
   const selectedType = isCardType(requestedType) ? requestedType : undefined;
-  const user = await getCurrentUser();
-  const importantOnly = filters.important === "1" && user?.status === "active";
-  const noteOnly = filters.note === "1" && user?.status === "active";
+  const importantOnly = filters.important === "1";
+  const noteOnly = filters.note === "1";
   const items = await db
     .select({
       id: cards.id,
@@ -45,6 +41,8 @@ export default async function CardsPage({
       type: cards.type,
       publishedAt: cards.publishedAt,
       collectedAt: cards.collectedAt,
+      important: cards.important,
+      note: cards.note,
       sourceName: sources.name,
     })
     .from(cards)
@@ -55,52 +53,12 @@ export default async function CardsPage({
         ne(cards.reviewStatus, "hidden"),
         isNull(cards.mergedIntoCardId),
         selectedType ? eq(cards.type, selectedType) : undefined,
-        importantOnly
-          ? inArray(
-              cards.id,
-              db
-                .select({ cardId: cardUserStates.cardId })
-                .from(cardUserStates)
-                .where(
-                  and(
-                    eq(cardUserStates.userId, user.id),
-                    eq(cardUserStates.important, true),
-                  ),
-                ),
-            )
-          : undefined,
-        noteOnly
-          ? inArray(
-              cards.id,
-              db
-                .select({ cardId: notes.cardId })
-                .from(notes)
-                .where(eq(notes.userId, user.id)),
-            )
-          : undefined,
+        importantOnly ? eq(cards.important, true) : undefined,
+        noteOnly ? isNotNull(cards.note) : undefined,
       ),
     )
     .orderBy(desc(cards.publishedAt))
     .limit(100);
-  const importantRows = user?.status === "active"
-    ? await db
-        .select({ cardId: cardUserStates.cardId })
-        .from(cardUserStates)
-        .where(
-          and(
-            eq(cardUserStates.userId, user.id),
-            eq(cardUserStates.important, true),
-          ),
-        )
-    : [];
-  const importantCardIds = new Set(importantRows.map((row) => row.cardId));
-  const noteRows = user?.status === "active"
-    ? await db
-        .select({ cardId: notes.cardId })
-        .from(notes)
-        .where(eq(notes.userId, user.id))
-    : [];
-  const noteCardIds = new Set(noteRows.map((row) => row.cardId));
   const filterHref = (input: {
     type?: typeof selectedType;
     important?: boolean;
@@ -150,38 +108,18 @@ export default async function CardsPage({
             {CARD_TYPE_LABELS[type]}
           </Link>
         ))}
-        {user?.status === "active" ? (
-          <Link
-            className={`rounded-full px-4 py-2 text-sm ${
-              importantOnly
-                ? "bg-amber-400 text-amber-950"
-                : "bg-white text-neutral-700 ring-1 ring-neutral-200"
-            }`}
-            href={filterHref({
-              type: selectedType,
-              important: !importantOnly,
-              note: noteOnly,
-            })}
-          >
-            ★ 중요만
-          </Link>
-        ) : null}
-        {user?.status === "active" ? (
-          <Link
-            className={`rounded-full px-4 py-2 text-sm ${
-              noteOnly
-                ? "bg-emerald-500 text-white"
-                : "bg-white text-neutral-700 ring-1 ring-neutral-200"
-            }`}
-            href={filterHref({
-              type: selectedType,
-              important: importantOnly,
-              note: !noteOnly,
-            })}
-          >
-            메모 있음
-          </Link>
-        ) : null}
+        <Link
+          className={`rounded-full px-4 py-2 text-sm ${importantOnly ? "bg-amber-400 text-amber-950" : "bg-white text-neutral-700 ring-1 ring-neutral-200"}`}
+          href={filterHref({ type: selectedType, important: !importantOnly, note: noteOnly })}
+        >
+          ★ 중요만
+        </Link>
+        <Link
+          className={`rounded-full px-4 py-2 text-sm ${noteOnly ? "bg-emerald-500 text-white" : "bg-white text-neutral-700 ring-1 ring-neutral-200"}`}
+          href={filterHref({ type: selectedType, important: importantOnly, note: !noteOnly })}
+        >
+          메모 있음
+        </Link>
       </nav>
 
       {items.length === 0 ? (
@@ -205,18 +143,13 @@ export default async function CardsPage({
                       {CARD_TYPE_LABELS[item.type]}
                     </span>
                     {item.sourceName ? <span>{item.sourceName}</span> : null}
-                    {noteCardIds.has(item.id) ? (
+                    {item.note ? (
                       <span className="rounded-full bg-emerald-100 px-2 py-1 font-medium text-emerald-800">
                         메모 있음
                       </span>
                     ) : null}
                   </div>
-                  {user?.status === "active" ? (
-                    <ImportantButton
-                      cardId={item.id}
-                      important={importantCardIds.has(item.id)}
-                    />
-                  ) : null}
+                  <ImportantButton cardId={item.id} important={item.important} />
                 </div>
                 <Link className="block" href={`/cards/${item.id}`}>
                   <h2 className="mt-3 text-xl font-semibold">{item.title}</h2>
